@@ -1,0 +1,113 @@
+from pathlib import Path
+import zipfile
+
+root = Path("/mnt/data/influencers_bartenders")
+root.mkdir(exist_ok=True)
+
+html = r'''<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Influencers & Bartenders</title>
+  <style>
+    :root{--bg:#070707;--panel:#101010;--gold:#e4a91a;--gold2:#ffca3a;--text:#f7f7f7;--muted:#aaa;--line:#29230f}
+    *{box-sizing:border-box} body{margin:0;background:radial-gradient(circle at 80% 0,#211805 0,transparent 28%),var(--bg);color:var(--text);font-family:Inter,Arial,sans-serif}
+    a{text-decoration:none;color:inherit}.top{position:sticky;top:0;z-index:10;background:#080808eF;border-bottom:1px solid #28220f;backdrop-filter:blur(12px)}
+    nav{max-width:1250px;margin:auto;padding:18px 22px;display:flex;align-items:center;gap:28px}
+    .logo{font-weight:900;line-height:.9;font-size:20px}.logo span{color:var(--gold)} nav .links{display:flex;gap:22px;margin-left:auto;font-size:13px;color:#ddd}
+    .btn{border:1px solid var(--gold);background:transparent;color:#fff;padding:11px 18px;border-radius:7px;font-weight:800;cursor:pointer}.btn.gold{background:var(--gold);color:#080808}
+    .hero{max-width:1250px;margin:0 auto;padding:72px 22px 45px;display:grid;grid-template-columns:1.5fr .8fr;gap:35px;min-height:500px;align-items:center}
+    .hero h1{font-size:clamp(42px,7vw,78px);margin:10px 0;line-height:.92}.hero h1 span{color:var(--gold);font-style:italic}.hero p{color:#ccc;font-size:18px;max-width:620px;line-height:1.6}
+    .hero-card{background:linear-gradient(145deg,#17130a,#0b0b0b);border:1px solid #4b3a13;border-radius:18px;padding:25px;box-shadow:0 20px 70px #000}
+    .hero-card h3{margin-top:0}.trend{display:flex;justify-content:space-between;padding:15px 0;border-bottom:1px solid #28220f}.trend b{color:var(--gold)}
+    .wrap{max-width:1250px;margin:auto;padding:20px 22px 60px}.grid{display:grid;grid-template-columns:1.5fr .8fr;gap:22px}.section{background:var(--panel);border:1px solid #29230f;border-radius:15px;padding:22px;margin-bottom:22px}
+    .section h2{font-size:16px;text-transform:uppercase;letter-spacing:.08em;margin:0 0 18px}.stories{display:flex;gap:14px;overflow:auto}.story{min-width:92px;text-align:center;font-size:12px}.avatar{width:65px;height:65px;border-radius:50%;border:2px solid var(--gold);margin:auto auto 8px;background:linear-gradient(135deg,#40321a,#151515);display:grid;place-items:center;font-weight:900}
+    .post{border-top:1px solid #29230f;padding-top:18px;margin-top:18px}.posthead{display:flex;gap:10px;align-items:center}.posthead .avatar{width:42px;height:42px;margin:0}.post p{line-height:1.55;color:#ddd}.post-img{height:280px;border-radius:12px;background:linear-gradient(135deg,#21190c,#171717 45%,#3b1950);display:grid;place-items:center;font-size:72px;margin-top:14px}
+    .actions{display:flex;gap:25px;color:#bbb;padding-top:14px}.side-list{display:grid;gap:13px}.person{display:flex;align-items:center;gap:12px;border-bottom:1px solid #29230f;padding-bottom:12px}.person .avatar{width:45px;height:45px;margin:0}.person small{display:block;color:var(--muted);margin-top:3px}.tag{display:inline-block;border:1px solid #654d12;color:#e9bd4a;border-radius:20px;padding:8px 11px;margin:4px;font-size:12px}
+    footer{border-top:1px solid #29230f;padding:30px 22px;text-align:center;color:#777}.mobile{display:none}
+    @media(max-width:850px){nav .links{display:none}.hero,.grid{grid-template-columns:1fr}.hero{padding-top:45px}.hero-card{display:none}.mobile{display:block}.hero h1{font-size:52px}.wrap{padding-bottom:30px}}
+  </style>
+</head>
+<body>
+<header class="top"><nav>
+  <div class="logo">🍸 INFLUENCERS<br><span>& BARTENDERS</span></div>
+  <div class="links"><a href="#inicio">INICIO</a><a href="#trending">TRENDING</a><a href="#posts">POSTS</a><a href="#bartenders">BARTENDERS</a><a href="#influencers">INFLUENCERS</a></div>
+  <button class="btn gold" onclick="join()">ÚNETE</button>
+</nav></header>
+
+<main id="inicio">
+<section class="hero">
+  <div>
+    <div style="color:#e4a91a;font-weight:800;letter-spacing:.12em">LA COMUNIDAD</div>
+    <h1>CHISME, DRINKS<br><span>Y BUENA COMPAÑÍA</span></h1>
+    <p>El lugar donde influencers y bartenders se conectan, publican, comentan y cuentan todo.</p>
+    <button class="btn gold" onclick="join()">ÚNETE AHORA 🔥</button>
+    <button class="btn" onclick="document.querySelector('#posts').scrollIntoView({behavior:'smooth'})">EXPLORAR →</button>
+  </div>
+  <aside class="hero-card" id="trending"><h3>🔥 TRENDING AHORA</h3>
+    <div class="trend"><span>¿Quién terminó otra vez?</span><b>1.2K</b></div>
+    <div class="trend"><span>Nuevo romance en Miami</span><b>987</b></div>
+    <div class="trend"><span>La fiesta secreta</span><b>756</b></div>
+    <div class="trend"><span>¿Indirectas o directas?</span><b>634</b></div>
+    <div class="trend"><span>Bartender del mes</span><b>512</b></div>
+  </aside>
+</section>
+
+<div class="wrap">
+<div class="grid">
+<section>
+  <div class="section"><h2>🔥 Chismes calientes</h2>
+    <div class="stories">
+      <div class="story"><div class="avatar">+</div>Tu historia</div><div class="story"><div class="avatar">LF</div>LaFama</div>
+      <div class="story"><div class="avatar">BL</div>BartenderLife</div><div class="story"><div class="avatar">CV</div>ChismeVIP</div>
+      <div class="story"><div class="avatar">DQ</div>DrinkQueen</div><div class="story"><div class="avatar">PP</div>PartyPeople</div>
+    </div>
+  </div>
+  <div class="section" id="posts"><h2>🗣️ Últimos posts</h2>
+    <article class="post"><div class="posthead"><div class="avatar">LF</div><div><b>LaFama ✓</b><small style="display:block;color:#999">hace 1 h</small></div></div>
+      <p>Dicen que lo vieron besándose en la misma fiesta... 👀🔥<br>¿Será verdad o solo chisme? <span style="color:#e4a91a">#ChismeVIP</span></p>
+      <div class="post-img">❓💋</div><div class="actions">❤️ 1.2K　💬 256　↗ 89　🔖</div>
+    </article>
+  </div>
+</section>
+
+<aside>
+  <div class="section" id="influencers"><h2>⭐ Top influencers</h2><div class="side-list">
+    <div class="person"><div class="avatar">CL</div><div><b>CandyLove ✓</b><small>324K seguidores</small></div><button class="btn">SEGUIR</button></div>
+    <div class="person"><div class="avatar">RK</div><div><b>TheRealKing ✓</b><small>278K seguidores</small></div><button class="btn">SEGUIR</button></div>
+    <div class="person"><div class="avatar">NK</div><div><b>NikkiHot ✓</b><small>199K seguidores</small></div><button class="btn">SEGUIR</button></div>
+    <div class="person"><div class="avatar">MB</div><div><b>MiaBlast</b><small>186K seguidores</small></div><button class="btn">SEGUIR</button></div>
+  </div></div>
+  <div class="section" id="bartenders"><h2>🍸 Bartenders destacados</h2>
+    <div class="side-list"><div class="person"><div class="avatar">MM</div><div><b>MixMaster ✓</b><small>Cócteles creativos</small></div></div>
+    <div class="person"><div class="avatar">AS</div><div><b>AnaShakes ✓</b><small>Clásicos premium</small></div></div></div>
+  </div>
+  <div class="section"><h2>🏷️ Temas populares</h2>
+    <span class="tag">#ChismeVIP</span><span class="tag">#Indirectas</span><span class="tag">#NuevosRones</span><span class="tag">#Fiestas</span><span class="tag">#BartenderDelMes</span><span class="tag">#DramaAlert</span>
+  </div>
+</aside>
+</div>
+</div>
+</main>
+<footer>© 2026 Influencers & Bartenders · Comunidad · Privacidad · Términos</footer>
+<script>
+function join(){alert("¡Pronto! Aquí conectaremos el registro de usuarios.");}
+</script>
+</body>
+</html>'''
+
+(root/"index.html").write_text(html, encoding="utf-8")
+(root/"README.txt").write_text(
+    "Influencers & Bartenders — primera versión visual.\n"
+    "Abre index.html en un navegador para ver la página.\n"
+    "La siguiente etapa puede conectar registro, base de datos, publicaciones, comentarios y perfiles.\n",
+    encoding="utf-8"
+)
+
+zip_path = Path("/mnt/data/influencers_bartenders_web.zip")
+with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as z:
+    for f in root.iterdir():
+        z.write(f, arcname=f.name)
+
+print(f"Listo: {zip_path}")
