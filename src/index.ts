@@ -1,7 +1,43 @@
 export default {
 async fetch(request: Request, env: { DB: D1Database }): Promise<Response> {
     const url = new URL(request.url);
+// ❤️ GUARDAR LIKES
+if (url.pathname === "/api/like" && request.method === "POST") {
+  const { post_id } = await request.json();
 
+  await env.DB.prepare(
+    "INSERT INTO likes (post_id) VALUES (?)"
+  ).bind(post_id).run();
+
+  const result = await env.DB.prepare(
+    "SELECT COUNT(*) as likes FROM likes WHERE post_id = ?"
+  ).bind(post_id).first();
+
+  return Response.json({
+    success: true,
+    likes: result.likes
+  });
+}
+
+// 💬 GUARDAR COMENTARIO
+if (url.pathname === "/api/comment" && request.method === "POST") {
+  const { post_id, comment } = await request.json();
+
+  if (!comment || !comment.trim()) {
+    return Response.json(
+      { success: false, error: "Comentario vacío" },
+      { status: 400 }
+    );
+  }
+
+  await env.DB.prepare(
+    "INSERT INTO comments (post_id, comment) VALUES (?, ?)"
+  ).bind(post_id, comment.trim()).run();
+
+  return Response.json({
+    success: true
+  });
+}
     if (url.pathname !== "/") {
       return new Response("Página no encontrada", {
         status: 404,
