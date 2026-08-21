@@ -537,7 +537,7 @@ if (url.pathname === "/api/comment" && request.method === "POST") {
 
     <div class="cards">
 
-      <article class="card">
+      <article class="card" data-post-id="1">
         <div class="emoji">🔥</div>
         <h3>Influencers</h3>
         <p>
@@ -568,18 +568,62 @@ if (url.pathname === "/api/comment" && request.method === "POST") {
   </button>
 
 </div>
+<div class="post-actions">
+
+  <button class="like-btn" onclick="toggleLike(this)">
+    ❤️ <span>Like</span>
+  </button>
+
+  <button onclick="toggleComment(this)">
+    💬 Comentario
+  </button>
+
+</div>
+
+<div class="comment-box">
+
+  <textarea placeholder="Escribe tu comentario..."></textarea>
+
+  <button onclick="addComment(this)">Publicar</button>
+
+  <div class="comments"></div>
+
+</div>
       </article>
 
-      <article class="card">
+      <article class="card" data-post-id="2">
         <div class="emoji">🍸</div>
         <h3>Bartenders</h3>
         <p>
           Los bartenders que están convirtiendo
           la noche en una experiencia.
-        </p>
-      </article>
+</p>
 
-      <article class="card">
+<div class="post-actions">
+
+  <button class="like-btn" onclick="toggleLike(this)">
+    ❤️ <span>Like</span>
+  </button>
+
+  <button onclick="toggleComment(this)">
+    💬 Comentario
+  </button>
+
+</div>
+
+<div class="comment-box">
+
+  <textarea placeholder="Escribe tu comentario..."></textarea>
+
+  <button onclick="addComment(this)">Publicar</button>
+
+  <div class="comments"></div>
+
+</div>
+
+</article>
+
+      <article class="card" data-post-id="3">
         <div class="emoji">👁️</div>
         <h3>Rumores</h3>
         <p>
