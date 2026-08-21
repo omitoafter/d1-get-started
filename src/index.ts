@@ -432,6 +432,10 @@ async fetch(request: Request, env: { DB: D1Database }): Promise<Response> {
           Quién apareció, quién desapareció
           y qué está pasando detrás de las cámaras.
         </p>
+<div class="post-actions">
+  <button>❤️ Like</button>
+  <button>💬 Comentario</button>
+</div>
       </article>
 
       <article class="card">
