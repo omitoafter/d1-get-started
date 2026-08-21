@@ -433,9 +433,25 @@ async fetch(request: Request, env: { DB: D1Database }): Promise<Response> {
           y qué está pasando detrás de las cámaras.
         </p>
 <div class="post-actions">
-<button>❤️ Like</button>
-<button>💬 Comentario</button>
-<button>➕ Post</button>
+
+  <button class="like-btn" onclick="this.classList.toggle('liked')">
+
+    ❤️ Like
+
+  </button>
+
+  <button onclick="alert('💬 Aquí podrás escribir un comentario')">
+
+    💬 Comentario
+
+  </button>
+
+  <button onclick="alert('➕ Aquí podrás crear un nuevo post')">
+
+    ➕ Post
+
+  </button>
+
 </div>
       </article>
 
