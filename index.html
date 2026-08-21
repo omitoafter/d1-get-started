@@ -1,1 +1,358 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
+  <title>BY OMITO — Influencers & Bartenders</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      background: #080808;
+      color: white;
+    }
+
+    header {
+      padding: 22px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #242424;
+      position: sticky;
+      top: 0;
+      background: rgba(8,8,8,.95);
+      z-index: 10;
+    }
+
+    .logo {
+      font-size: 25px;
+      font-weight: 900;
+      letter-spacing: 2px;
+    }
+
+    .logo span {
+      color: #b78cff;
+    }
+
+    .menu {
+      font-size: 14px;
+      color: #aaa;
+    }
+
+    .hero {
+      padding: 70px 24px 55px;
+      text-align: center;
+      background:
+        radial-gradient(circle at top, #30204d 0%, #080808 48%);
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 8px 14px;
+      border: 1px solid #65498c;
+      border-radius: 30px;
+      color: #d6baff;
+      font-size: 12px;
+      letter-spacing: 1px;
+      margin-bottom: 22px;
+    }
+
+    h1 {
+      font-size: clamp(45px, 14vw, 85px);
+      line-height: .9;
+      letter-spacing: -4px;
+    }
+
+    h1 span {
+      color: #b78cff;
+    }
+
+    .hero p {
+      max-width: 600px;
+      margin: 25px auto;
+      color: #aaa;
+      font-size: 17px;
+      line-height: 1.6;
+    }
+
+    .buttons {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-top: 28px;
+    }
+
+    .button {
+      text-decoration: none;
+      color: white;
+      padding: 14px 22px;
+      border-radius: 30px;
+      border: 1px solid #444;
+      font-weight: bold;
+    }
+
+    .button.primary {
+      background: #b78cff;
+      color: #080808;
+      border: none;
+    }
+
+    section {
+      padding: 55px 20px;
+      max-width: 1050px;
+      margin: auto;
+    }
+
+    .section-title {
+      font-size: 30px;
+      margin-bottom: 10px;
+    }
+
+    .section-subtitle {
+      color: #888;
+      margin-bottom: 28px;
+    }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px;
+    }
+
+    .card {
+      background: #111;
+      border: 1px solid #292929;
+      border-radius: 20px;
+      padding: 28px;
+      min-height: 190px;
+      transition: .2s;
+    }
+
+    .card:hover {
+      transform: translateY(-4px);
+      border-color: #8d63c7;
+    }
+
+    .icon {
+      font-size: 35px;
+      margin-bottom: 18px;
+    }
+
+    .card h3 {
+      font-size: 21px;
+      margin-bottom: 10px;
+    }
+
+    .card p {
+      color: #888;
+      line-height: 1.5;
+    }
+
+    .hot {
+      background: linear-gradient(135deg, #171017, #15111d);
+      border: 1px solid #49384f;
+      border-radius: 24px;
+      padding: 28px;
+      margin-top: 20px;
+    }
+
+    .hot-label {
+      color: #ff72b6;
+      font-size: 12px;
+      font-weight: bold;
+      letter-spacing: 2px;
+      margin-bottom: 12px;
+    }
+
+    .hot h2 {
+      font-size: 27px;
+      margin-bottom: 12px;
+    }
+
+    .hot p {
+      color: #999;
+      line-height: 1.6;
+    }
+
+    .join {
+      text-align: center;
+      padding: 70px 20px;
+      background: #111;
+      border-top: 1px solid #242424;
+      border-bottom: 1px solid #242424;
+    }
+
+    .join h2 {
+      font-size: 35px;
+      margin-bottom: 15px;
+    }
+
+    .join p {
+      color: #888;
+      margin-bottom: 25px;
+    }
+
+    footer {
+      text-align: center;
+      padding: 35px 20px;
+      color: #666;
+      font-size: 13px;
+    }
+
+    footer strong {
+      color: #b78cff;
+    }
+  </style>
+</head>
+
+<body>
+
+  <header>
+    <div class="logo">BY <span>OMITO</span></div>
+    <div class="menu">INFLUENCE • NIGHTLIFE • CULTURE</div>
+  </header>
+
+  <main>
+
+    <section class="hero">
+      <div class="badge">THE PLACE TO KNOW WHAT'S HAPPENING</div>
+
+      <h1>
+        BY<br>
+        <span>OMITO</span>
+      </h1>
+
+      <p>
+        El lugar donde influencers, bartenders y gente de la noche
+        vienen a hablar, compartir historias y descubrir qué está
+        realmente pasando.
+      </p>
+
+      <div class="buttons">
+        <a class="button primary" href="#trending">Ver lo trending</a>
+        <a class="button" href="#join">Únete</a>
+      </div>
+    </section>
+
+    <section id="trending">
+      <h2 class="section-title">🔥 What's Hot</h2>
+      <p class="section-subtitle">
+        Lo que está dando de qué hablar.
+      </p>
+
+      <div class="cards">
+
+        <div class="card">
+          <div class="icon">📸</div>
+          <h3>Influencers</h3>
+          <p>
+            Noticias, stories, movimientos y conversaciones
+            de los influencers que todos están mirando.
+          </p>
+        </div>
+
+        <div class="card">
+          <div class="icon">🍸</div>
+          <h3>Bartenders</h3>
+          <p>
+            La vida detrás de la barra, nightlife, drinks,
+            personajes y las historias que no ves en Instagram.
+          </p>
+        </div>
+
+        <div class="card">
+          <div class="icon">👀</div>
+          <h3>Chisme</h3>
+          <p>
+            Las conversaciones que están circulando.
+            Tú sabes que quieres saber.
+          </p>
+        </div>
+
+        <div class="card">
+          <div class="icon">🔥</div>
+          <h3>Trending</h3>
+          <p>
+            Lo que está pasando ahora mismo en la cultura,
+            nightlife y redes sociales.
+          </p>
+        </div>
+
+      </div>
+
+      <div class="hot">
+        <div class="hot-label">HOT TOPIC</div>
+        <h2>¿Quién está hablando de quién?</h2>
+        <p>
+          Aquí empieza la conversación. Historias, opiniones,
+          rumores y momentos que hacen que todos quieran saber más.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2 class="section-title">🎤 La conversación</h2>
+      <p class="section-subtitle">
+        No solamente miramos. Hablamos.
+      </p>
+
+      <div class="cards">
+
+        <div class="card">
+          <div class="icon">💬</div>
+          <h3>Spill the Tea</h3>
+          <p>
+            Comparte lo que está pasando y descubre
+            lo que otros están diciendo.
+          </p>
+        </div>
+
+        <div class="card">
+          <div class="icon">🌙</div>
+          <h3>After Hours</h3>
+          <p>
+            Las historias que comienzan cuando termina
+            la noche oficial.
+          </p>
+        </div>
+
+        <div class="card">
+          <div class="icon">✨</div>
+          <h3>People to Watch</h3>
+          <p>
+            Descubre quién está subiendo, quién está
+            cambiando el juego y quién viene detrás.
+          </p>
+        </div>
+
+      </div>
+    </section>
+
+    <div class="join" id="join">
+      <h2>¿Tienes algo que contar?</h2>
+      <p>
+        Este es tu espacio. Influencers, bartenders,
+        nightlife y cultura.
+      </p>
+
+      <a class="button primary" href="mailto:hello@omitoafter.com">
+        Contact BY OMITO
+      </a>
+    </div>
+
+  </main>
+
+  <footer>
+    © 2026 <strong>BY OMITO</strong> — All rights reserved.
+  </footer>
+
+</body>
+</html>
