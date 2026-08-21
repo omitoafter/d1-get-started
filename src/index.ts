@@ -471,11 +471,9 @@ async fetch(request: Request, env: { DB: D1Database }): Promise<Response> {
         </p>
 <div class="post-actions">
 
-  <button class="like-btn" onclick="this.classList.toggle('liked')">
-
-    ❤️ Like
-
-  </button>
+<button class="like-btn" onclick="toggleLike(this)">
+  ❤️ <span>Like</span>
+</button>
 
   <button onclick="alert('💬 Aquí podrás escribir un comentario')">
 
