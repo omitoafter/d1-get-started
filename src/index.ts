@@ -329,6 +329,43 @@ async fetch(request: Request, env: { DB: D1Database }): Promise<Response> {
         letter-spacing: -3px;
       }
     }
+ .like-btn.liked {
+
+  background: #ff2d55;
+
+  color: white;
+
+  transform: scale(1.05);
+
+}
+.post-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+
+.post-actions button {
+  background: #181818;
+  color: #ffffff;
+  border: 1px solid #444;
+  border-radius: 999px;
+  padding: 10px 16px;
+  font-size: 15px;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.post-actions button:hover {
+  background: #252525;
+  border-color: #8b5cf6;
+}
+
+.post-actions .like-btn.liked {
+  background: #8b5cf6;
+  color: white;
+  border-color: #8b5cf6;
+}
   </style>
 </head>
 
