@@ -703,7 +703,7 @@ function toggleComment(button) {
   }
 }
 
-function addComment(button) {
+async function addComment(button) {
   const card = button.closest(".card");
   const textarea = card.querySelector("textarea");
   const comments = card.querySelector(".comments");
@@ -715,13 +715,46 @@ function addComment(button) {
     return;
   }
 
-  const comment = document.createElement("div");
-  comment.className = "comment";
-  comment.textContent = "💬 " + text;
+  // Obtener el ID del post
+  const postId = card.dataset.postId;
 
-  comments.appendChild(comment);
+  if (!postId) {
+    alert("No se encontró el post.");
+    return;
+  }
 
-  textarea.value = "";
+  try {
+    const response = await fetch("/api/comment", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        post_id: postId,
+        comment: text
+      })
+    });
+
+    const data = await response.json();
+
+    if (!data.success) {
+      alert(data.error || "No se pudo publicar el comentario.");
+      return;
+    }
+
+    // Mostrar el comentario en pantalla
+    const comment = document.createElement("div");
+    comment.className = "comment";
+    comment.textContent = "💬 " + text;
+
+    comments.appendChild(comment);
+
+    textarea.value = "";
+
+  } catch (error) {
+    console.error(error);
+    alert("Error al conectar con el servidor.");
+  }
 }
 </script>
 </body>
