@@ -366,6 +366,12 @@ async fetch(request: Request, env: { DB: D1Database }): Promise<Response> {
   color: white;
   border-color: #8b5cf6;
 }
+.like-btn.liked {
+  background: #8b5cf6 !important;
+  color: white !important;
+  border-color: #8b5cf6 !important;
+  transform: scale(1.03);
+}
   </style>
 </head>
 
@@ -598,7 +604,19 @@ async fetch(request: Request, env: { DB: D1Database }): Promise<Response> {
 
   </div>
 </footer>
+<script>
+function toggleLike(button) {
+  const text = button.querySelector("span");
 
+  button.classList.toggle("liked");
+
+  if (button.classList.contains("liked")) {
+    text.textContent = "Liked ❤️";
+  } else {
+    text.textContent = "Like";
+  }
+}
+</script>
 </body>
 </html>`;
 
