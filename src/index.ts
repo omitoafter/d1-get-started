@@ -768,18 +768,40 @@ async function addComment(button) {
   }
 
   try {
-    const response = await fetch("/api/comment", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        post_id: postId,
-        comment: text
-      })
-    });
+ const response = await fetch("/api/comment", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json"
+  },
+  body: JSON.stringify({
+    post_id: postId,
+    comment: text
+  })
+});
 
-    const data = await response.json();
+const raw = await response.text();
+
+let data;
+
+try {
+  data = JSON.parse(raw);
+} catch (e) {
+  alert(
+    "Respuesta del servidor (" +
+    response.status +
+    "):\n\n" +
+    raw.substring(0, 500)
+  );
+  return;
+}
+
+if (!response.ok || !data.success) {
+  alert(
+    data.error ||
+    "Error del servidor. Código: " + response.status
+  );
+  return;
+}
 
     if (!data.success) {
       alert(data.error || "No se pudo publicar el comentario.");
