@@ -1,822 +1,2602 @@
-export default {
-async fetch(request: Request, env: { DB: D1Database }): Promise<Response> {
-    const url = new URL(request.url);
-// ❤️ GUARDAR LIKES
-if (url.pathname === "/api/like" && request.method === "POST") {
-  const { post_id } = await request.json();
-
-  await env.DB.prepare(
-    "INSERT INTO likes (post_id) VALUES (?)"
-  ).bind(post_id).run();
-
-  const result = await env.DB.prepare(
-    "SELECT COUNT(*) as likes FROM likes WHERE post_id = ?"
-  ).bind(post_id).first();
-
-  return Response.json({
-    success: true,
-    likes: result.likes
-  });
+export interface Env {
+  DB: D1Database;
 }
 
-// 💬 GUARDAR COMENTARIO
-if (url.pathname === "/api/comment" && request.method === "POST") {
-  const { post_id, comment } = await request.json();
+const json = (data: unknown, status = 200) =>
+  Response.json(data, {
+    status,
+    headers: {
+      "content-type": "application/json; charset=UTF-8",
+      "cache-control": "no-store",
+    },
+  });
 
-  if (!comment || !comment.trim()) {
-    return Response.json(
-      { success: false, error: "Comentario vacío" },
-      { status: 400 }
+async function setupDB(db: D1Database) {
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS posts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      category TEXT NOT NULL DEFAULT 'influencer',
+      title TEXT NOT NULL,
+      body TEXT NOT NULL,
+      emoji TEXT NOT NULL DEFAULT '✨',
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
+
+    CREATE TABLE IF NOT EXISTS likes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      post_id INTEGER NOT NULL,
+      visitor_id TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(post_id, visitor_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS comments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      post_id INTEGER NOT NULL,
+      visitor_id TEXT NOT NULL,
+      name TEXT NOT NULL DEFAULT 'Invitado',
+      comment TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_likes_post
+    ON likes(post_id);
+
+    CREATE INDEX IF NOT EXISTS idx_comments_post
+    ON comments(post_id);
+  `);
+
+  const count = await db
+    .prepare("SELECT COUNT(*) AS count FROM posts")
+    .first<{ count: number }>();
+
+  if (!count || Number(count.count) === 0) {
+    await db.batch([
+      db.prepare(
+        "INSERT INTO posts (category,title,body,emoji) VALUES (?,?,?,?)"
+      ).bind(
+        "influencer",
+        "Influencers",
+        "Los influencers que están marcando la noche, las tendencias y todo lo que pasa AFTER.",
+        "✨"
+      ),
+
+      db.prepare(
+        "INSERT INTO posts (category,title,body,emoji) VALUES (?,?,?,?)"
+      ).bind(
+        "bartender",
+        "Bartenders",
+        "Los bartenders que están convirtiendo la noche en una experiencia.",
+        "🍸"
+      ),
+    ]);
+  }
+}
+
+async function getPosts(db: D1Database, visitorId: string) {
+  const posts = await db
+    .prepare(`
+      SELECT
+        p.id,
+        p.category,
+        p.title,
+        p.body,
+        p.emoji,
+        p.created_at,
+
+        (
+          SELECT COUNT(*)
+          FROM likes l
+          WHERE l.post_id = p.id
+        ) AS likes,
+
+        (
+          SELECT COUNT(*)
+          FROM comments c
+          WHERE c.post_id = p.id
+        ) AS comments,
+
+        EXISTS(
+          SELECT 1
+          FROM likes ml
+          WHERE ml.post_id = p.id
+          AND ml.visitor_id = ?
+        ) AS liked
+
+      FROM posts p
+      ORDER BY p.id DESC
+    `)
+    .bind(visitorId)
+    .all();
+
+  const result = [];
+
+  for (const post of posts.results as any[]) {
+    const comments = await db
+      .prepare(`
+        SELECT
+          id,
+          name,
+          comment,
+          created_at
+        FROM comments
+        WHERE post_id = ?
+        ORDER BY id ASC
+        LIMIT 30
+      `)
+      .bind(post.id)
+      .all();
+
+    result.push({
+      ...post,
+      commentsList: comments.results,
+    });
   }
 
-  await env.DB.prepare(
-    "INSERT INTO comments (post_id, comment) VALUES (?, ?)"
-  ).bind(post_id, comment.trim()).run();
-
-  return Response.json({
-    success: true
-  });
+  return result;
 }
-    if (url.pathname !== "/") {
-      return new Response("Página no encontrada", {
-        status: 404,
-        headers: { "content-type": "text/plain; charset=UTF-8" },
-      });
+async function handleAPI(
+  request: Request,
+  env: Env,
+  url: URL
+) {
+  await setupDB(env.DB);
+
+  // =========================
+  // OBTENER PUBLICACIONES
+  // =========================
+
+  if (
+    url.pathname === "/api/posts" &&
+    request.method === "GET"
+  ) {
+    const visitorId =
+      url.searchParams.get("visitor_id") || "guest";
+
+    const posts = await getPosts(
+      env.DB,
+      visitorId
+    );
+
+    return json({
+      success: true,
+      posts,
+    });
+  }
+
+  // =========================
+  // LIKE
+  // =========================
+
+  if (
+    url.pathname === "/api/like" &&
+    request.method === "POST"
+  ) {
+    const body = await request
+      .json()
+      .catch(() => null) as any;
+
+    const postId = Number(body?.post_id);
+    const visitorId =
+      String(body?.visitor_id || "");
+
+    if (
+      !Number.isInteger(postId) ||
+      !visitorId
+    ) {
+      return json(
+        {
+          success: false,
+          error: "Datos de Like inválidos.",
+        },
+        400
+      );
     }
 
-    const html = `<!DOCTYPE html>
+    const existing =
+      await env.DB
+        .prepare(`
+          SELECT id
+          FROM likes
+          WHERE post_id = ?
+          AND visitor_id = ?
+        `)
+        .bind(
+          postId,
+          visitorId
+        )
+        .first();
+
+    if (existing) {
+      await env.DB
+        .prepare(`
+          DELETE FROM likes
+          WHERE post_id = ?
+          AND visitor_id = ?
+        `)
+        .bind(
+          postId,
+          visitorId
+        )
+        .run();
+    } else {
+      await env.DB
+        .prepare(`
+          INSERT OR IGNORE INTO likes
+          (post_id, visitor_id)
+          VALUES (?, ?)
+        `)
+        .bind(
+          postId,
+          visitorId
+        )
+        .run();
+    }
+
+    const total =
+      await env.DB
+        .prepare(`
+          SELECT COUNT(*) AS likes
+          FROM likes
+          WHERE post_id = ?
+        `)
+        .bind(postId)
+        .first<{ likes: number }>();
+
+    return json({
+      success: true,
+      liked: !existing,
+      likes: Number(
+        total?.likes || 0
+      ),
+    });
+  }
+
+  // =========================
+  // COMENTARIOS
+  // =========================
+
+  if (
+    url.pathname === "/api/comment" &&
+    request.method === "POST"
+  ) {
+    const body = await request
+      .json()
+      .catch(() => null) as any;
+
+    const postId =
+      Number(body?.post_id);
+
+    const comment =
+      String(
+        body?.comment || ""
+      ).trim();
+
+    const visitorId =
+      String(
+        body?.visitor_id || ""
+      ).trim();
+
+    const name =
+      String(
+        body?.name || "Invitado"
+      )
+      .trim()
+      .slice(0, 40) ||
+      "Invitado";
+
+    if (
+      !Number.isInteger(postId) ||
+      !visitorId
+    ) {
+      return json(
+        {
+          success: false,
+          error:
+            "Datos del comentario inválidos.",
+        },
+        400
+      );
+    }
+
+    if (!comment) {
+      return json(
+        {
+          success: false,
+          error:
+            "Escribe un comentario.",
+        },
+        400
+      );
+    }
+
+    if (comment.length > 1000) {
+      return json(
+        {
+          success: false,
+          error:
+            "El comentario es demasiado largo.",
+        },
+        400
+      );
+    }
+
+    await env.DB
+      .prepare(`
+        INSERT INTO comments
+        (
+          post_id,
+          visitor_id,
+          name,
+          comment
+        )
+        VALUES (?, ?, ?, ?)
+      `)
+      .bind(
+        postId,
+        visitorId,
+        name,
+        comment
+      )
+      .run();
+
+    const comments =
+      await env.DB
+        .prepare(`
+          SELECT
+            id,
+            name,
+            comment,
+            created_at
+          FROM comments
+          WHERE post_id = ?
+          ORDER BY id ASC
+          LIMIT 30
+        `)
+        .bind(postId)
+        .all();
+
+    return json({
+      success: true,
+      comments:
+        comments.results,
+    });
+  }
+
+  // =========================
+  // CREAR PUBLICACIÓN
+  // =========================
+
+  if (
+    url.pathname === "/api/post" &&
+    request.method === "POST"
+  ) {
+    const body = await request
+      .json()
+      .catch(() => null) as any;
+
+    const category =
+      body?.category === "bartender"
+        ? "bartender"
+        : "influencer";
+
+    const title =
+      String(
+        body?.title || ""
+      ).trim();
+
+    const text =
+      String(
+        body?.body || ""
+      ).trim();
+
+    const emoji =
+      String(
+        body?.emoji ||
+        (
+          category === "bartender"
+            ? "🍸"
+            : "✨"
+        )
+      ).slice(0, 8);
+
+    if (!title || !text) {
+      return json(
+        {
+          success: false,
+          error:
+            "Completa el título y el texto.",
+        },
+        400
+      );
+    }
+
+    if (
+      title.length > 120 ||
+      text.length > 3000
+    ) {
+      return json(
+        {
+          success: false,
+          error:
+            "El texto es demasiado largo.",
+        },
+        400
+      );
+    }
+
+    const inserted =
+      await env.DB
+        .prepare(`
+          INSERT INTO posts
+          (
+            category,
+            title,
+            body,
+            emoji
+          )
+          VALUES (?, ?, ?, ?)
+        `)
+        .bind(
+          category,
+          title,
+          text,
+          emoji
+        )
+        .run();
+
+    return json({
+      success: true,
+      id:
+        inserted.meta
+          .last_row_id,
+    });
+  }
+
+  return json(
+    {
+      success: false,
+      error:
+        "Ruta API no encontrada.",
+    },
+    404
+  );
+}
+function pageHTML() {
+  return `<!doctype html>
 <html lang="es">
+
 <head>
-  <meta charset="UTF-8">
+<meta charset="UTF-8">
 
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1.0"
-  >
+<meta
+  name="viewport"
+  content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+>
 
-  <title>AFTER — by omito</title>
+<meta
+  name="theme-color"
+  content="#050505"
+>
 
-  <meta
-    name="description"
-    content="AFTER — Influencers, bartenders, nightlife, tendencias y todo lo que pasa después."
-  >
+<title>AFTER — BY OMITO</title>
 
-  <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
+<style>
 
-    body {
-      background: #080808;
-      color: #ffffff;
-      font-family: Arial, Helvetica, sans-serif;
-      line-height: 1.5;
-    }
-
-    a {
-      color: inherit;
-      text-decoration: none;
-    }
-
-    .container {
-      width: 100%;
-      max-width: 1100px;
-      margin: auto;
-      padding: 0 20px;
-    }
-
-    header {
-      padding: 24px 0;
-      border-bottom: 1px solid #252525;
-      position: sticky;
-      top: 0;
-      background: rgba(8, 8, 8, 0.94);
-      backdrop-filter: blur(12px);
-      z-index: 10;
-    }
-
-    .nav {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 20px;
-    }
-
-    .logo {
-      font-size: 28px;
-      font-weight: 900;
-      letter-spacing: -1px;
-    }
-
-    .logo span {
-      color: #a855f7;
-    }
-
-    .by {
-      font-size: 12px;
-      color: #888;
-      margin-top: -5px;
-      letter-spacing: 2px;
-    }
-
-    .menu {
-      display: flex;
-      gap: 18px;
-      font-size: 14px;
-      color: #aaa;
-    }
-
-    .menu a:hover {
-      color: white;
-    }
-
-    .hero {
-      padding: 70px 0 45px;
-    }
-
-    .tag {
-      display: inline-block;
-      border: 1px solid #333;
-      background: #111;
-      color: #bbb;
-      border-radius: 30px;
-      padding: 7px 14px;
-      font-size: 12px;
-      margin-bottom: 20px;
-    }
-
-    h1 {
-      font-size: clamp(52px, 13vw, 110px);
-      line-height: .85;
-      letter-spacing: -5px;
-      margin-bottom: 24px;
-    }
-
-    .purple {
-      color: #a855f7;
-    }
-
-    .hero p {
-      max-width: 650px;
-      color: #aaa;
-      font-size: 18px;
-    }
-
-    .section {
-      padding: 35px 0;
-    }
-
-    .section-title {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 18px;
-    }
-
-    .section-title h2 {
-      font-size: 25px;
-    }
-
-    .section-title span {
-      color: #777;
-      font-size: 13px;
-    }
-
-    .featured {
-      border-radius: 24px;
-      min-height: 330px;
-      padding: 28px;
-      display: flex;
-      align-items: flex-end;
-      background:
-        radial-gradient(circle at 80% 20%, #7c3aed55, transparent 35%),
-        linear-gradient(135deg, #181818, #0b0b0b);
-      border: 1px solid #292929;
-      overflow: hidden;
-    }
-
-    .featured-content {
-      max-width: 650px;
-    }
-
-    .category {
-      display: inline-block;
-      color: #d8b4fe;
-      font-size: 12px;
-      text-transform: uppercase;
-      letter-spacing: 1.5px;
-      margin-bottom: 12px;
-    }
-
-    .featured h3 {
-      font-size: clamp(30px, 7vw, 55px);
-      line-height: 1;
-      margin-bottom: 12px;
-    }
-
-    .featured p {
-      color: #999;
-      max-width: 600px;
-    }
-
-    .cards {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 16px;
-    }
-
-    .card {
-      background: #111;
-      border: 1px solid #252525;
-      border-radius: 18px;
-      padding: 20px;
-      min-height: 190px;
-      transition: .2s ease;
-    }
-
-    .card:hover {
-      transform: translateY(-3px);
-      border-color: #555;
-    }
-
-    .emoji {
-      font-size: 30px;
-      margin-bottom: 18px;
-    }
-
-    .card h3 {
-      font-size: 20px;
-      margin-bottom: 8px;
-    }
-
-    .card p {
-      color: #888;
-      font-size: 14px;
-    }
-
-    .stories {
-      display: grid;
-      gap: 12px;
-    }
-
-    .story {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 15px;
-      padding: 18px;
-      border-radius: 16px;
-      background: #111;
-      border: 1px solid #242424;
-    }
-
-    .story-left {
-      display: flex;
-      gap: 14px;
-      align-items: center;
-    }
-
-    .avatar {
-      width: 48px;
-      height: 48px;
-      border-radius: 50%;
-      background: linear-gradient(135deg, #7c3aed, #ec4899);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: bold;
-    }
-
-    .story h3 {
-      font-size: 16px;
-    }
-
-    .story p {
-      color: #777;
-      font-size: 13px;
-    }
-
-    .arrow {
-      color: #777;
-      font-size: 20px;
-    }
-
-    .newsletter {
-      margin: 40px 0;
-      padding: 35px 25px;
-      text-align: center;
-      border-radius: 24px;
-      background: linear-gradient(135deg, #181818, #101010);
-      border: 1px solid #292929;
-    }
-
-    .newsletter h2 {
-      font-size: 30px;
-      margin-bottom: 10px;
-    }
-
-    .newsletter p {
-      color: #888;
-      margin-bottom: 20px;
-    }
-
-    .button {
-      display: inline-block;
-      background: #ffffff;
-      color: #080808;
-      padding: 13px 22px;
-      border-radius: 30px;
-      font-weight: bold;
-      cursor: pointer;
-    }
-
-    footer {
-      padding: 35px 0 50px;
-      border-top: 1px solid #222;
-      color: #666;
-      font-size: 13px;
-    }
-
-    footer strong {
-      color: #aaa;
-    }
-
-    @media (max-width: 700px) {
-      .menu {
-        display: none;
-      }
-
-      .hero {
-        padding-top: 50px;
-      }
-
-      .cards {
-        grid-template-columns: 1fr;
-      }
-
-      .featured {
-        min-height: 300px;
-      }
-
-      h1 {
-        letter-spacing: -3px;
-      }
-    }
- .like-btn.liked {
-
-  background: #ff2d55;
-
-  color: white;
-
-  transform: scale(1.05);
-
-}
-.post-actions {
-  display: flex;
-  gap: 10px;
-  margin-top: 16px;
-  flex-wrap: wrap;
+:root {
+  --black: #050505;
+  --panel: #0b0b0d;
+  --green: #39ff14;
+  --gold: #f5c542;
+  --purple: #b64cff;
+  --text: #f4f4f4;
+  --muted: #999;
+  --border: #29292d;
 }
 
-.post-actions button {
-  background: #181818;
-  color: #ffffff;
-  border: 1px solid #444;
-  border-radius: 999px;
-  padding: 10px 16px;
-  font-size: 15px;
-  cursor: pointer;
-  transition: 0.2s ease;
-}
-
-.post-actions button:hover {
-  background: #252525;
-  border-color: #8b5cf6;
-}
-
-.post-actions .like-btn.liked {
-  background: #8b5cf6;
-  color: white;
-  border-color: #8b5cf6;
-}
-.like-btn.liked {
-  background: #8b5cf6 !important;
-  color: white !important;
-  border-color: #8b5cf6 !important;
-  transform: scale(1.03);
-}
-.comment-box {
-  display: none;
-  margin-top: 12px;
-}
-
-.comment-box textarea {
-  width: 100%;
-  min-height: 80px;
-  padding: 12px;
-  border-radius: 12px;
-  border: 1px solid #444;
-  background: #111;
-  color: white;
-  font-size: 15px;
-  resize: vertical;
+* {
   box-sizing: border-box;
 }
 
-.comment-box textarea::placeholder {
-  color: #888;
+html {
+  scroll-behavior: smooth;
 }
 
-.comment-box button {
-  margin-top: 8px;
+body {
+  margin: 0;
+  background:
+    radial-gradient(
+      circle at 85% 5%,
+      rgba(182,76,255,.12),
+      transparent 30%
+    ),
+    radial-gradient(
+      circle at 5% 40%,
+      rgba(57,255,20,.06),
+      transparent 25%
+    ),
+    var(--black);
+
+  color: var(--text);
+
+  font-family:
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Arial,
+    sans-serif;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+/* =========================
+   APP
+========================= */
+
+.app {
+  width: min(100%, 1100px);
+  margin: auto;
+  padding: 14px 14px 100px;
+}
+
+/* =========================
+   HEADER
+========================= */
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 12px;
+
+  padding: 13px 15px;
+  margin-bottom: 15px;
+
+  background: rgba(5,5,5,.95);
+
+  backdrop-filter: blur(15px);
+
+  border: 1px solid var(--border);
+
+  border-radius: 18px;
+
+  box-shadow:
+    0 0 25px rgba(57,255,20,.04);
+}
+
+.brand {
+  color: var(--gold);
+
+  font-weight: 900;
+
+  font-size: 27px;
+
+  letter-spacing: 3px;
+}
+
+.brand small {
+  display: block;
+
+  color: var(--green);
+
+  font-size: 10px;
+
+  letter-spacing: 4px;
+
+  margin-top: -2px;
+}
+
+.nav {
+  display: flex;
+
+  gap: 7px;
+
+  overflow-x: auto;
+}
+
+.nav button {
+  background: #0b0b0d;
+
+  color: var(--muted);
+
+  border: 1px solid #303035;
+
+  border-radius: 12px;
+
+  padding: 9px 12px;
+
+  white-space: nowrap;
+}
+
+.nav button.active {
+  color: white;
+
+  border-color: var(--green);
+
+  box-shadow:
+    0 0 15px rgba(57,255,20,.18);
+}
+
+/* =========================
+   HERO
+========================= */
+
+.hero {
+  padding: 24px;
+
+  margin-bottom: 16px;
+
+  border-radius: 22px;
+
+  border: 1px solid #333;
+
+  background:
+    radial-gradient(
+      circle at 90% 50%,
+      rgba(182,76,255,.25),
+      transparent 30%
+    ),
+    #080808;
+}
+
+.hero h1 {
+  margin: 0 0 8px;
+
+  font-size: 28px;
+
+  letter-spacing: 2px;
+}
+
+.hero h1 .green {
+  color: var(--green);
+}
+
+.hero h1 .gold {
+  color: var(--gold);
+}
+
+.hero p {
+  margin: 0;
+
+  color: #ccc;
+
+  line-height: 1.6;
+}
+
+.hero-line {
+  width: 190px;
+
+  height: 2px;
+
+  margin-top: 18px;
+
+  background:
+    linear-gradient(
+      90deg,
+      var(--green),
+      var(--gold),
+      var(--purple)
+    );
+}
+
+/* =========================
+   TOOLBAR
+========================= */
+
+.toolbar {
+  display: flex;
+
+  gap: 8px;
+
+  margin: 12px 0 18px;
+
+  flex-wrap: wrap;
+}
+
+.search {
+  flex: 1;
+
+  min-width: 180px;
+
+  padding: 12px 13px;
+
+  color: white;
+
+  background: #0d0d0f;
+
+  border: 1px solid #2d2d31;
+
+  border-radius: 13px;
+
+  outline: none;
+}
+
+.search:focus {
+  border-color: var(--purple);
+}
+
+.new-post {
+  background: #0b1309;
+
+  color: var(--green);
+
+  border: 1px solid var(--green);
+
+  border-radius: 13px;
+
+  padding: 10px 15px;
+
+  font-weight: 800;
+}
+
+/* =========================
+   CARDS
+========================= */
+
+.card {
+  position: relative;
+
+  overflow: hidden;
+
+  margin-bottom: 15px;
+
+  padding: 18px;
+
+  background:
+    linear-gradient(
+      145deg,
+      #0c0c0e,
+      #070708
+    );
+
+  border: 1px solid #303035;
+
+  border-radius: 20px;
+
+  box-shadow:
+    0 0 22px rgba(0,0,0,.35);
+}
+
+.card.bartender {
+  border-color:
+    rgba(182,76,255,.55);
+}
+
+.post-head {
+  display: flex;
+
+  align-items: center;
+
+  gap: 12px;
+}
+
+.avatar {
+  width: 48px;
+  height: 48px;
+
+  display: grid;
+
+  place-items: center;
+
+  border-radius: 50%;
+
+  background: #111;
+
+  border: 2px solid var(--green);
+
+  font-size: 23px;
+}
+
+.card.bartender .avatar {
+  border-color: var(--purple);
+}
+
+.name {
+  font-weight: 800;
+}
+
+.verified {
+  color: var(--green);
+}
+
+.role {
+  margin-top: 3px;
+
+  color: var(--muted);
+
+  font-size: 13px;
+}
+
+.card h2 {
+  margin: 16px 0 8px;
+
+  font-size: 22px;
+}
+
+.card p {
+  color: #ddd;
+
+  font-size: 16px;
+
+  line-height: 1.6;
+
+  white-space: pre-wrap;
+}
+
+/* =========================
+   ACTIONS
+========================= */
+
+.stats {
+  display: flex;
+
+  gap: 22px;
+
+  padding: 11px 0;
+
+  margin-top: 14px;
+
+  border-top: 1px solid #242428;
+
+  border-bottom: 1px solid #242428;
+}
+
+.like-button,
+.comment-button {
+  border: 0;
+
+  background: transparent;
+
+  padding: 5px 0;
+
+  font-weight: 700;
+
+  color: var(--muted);
+}
+
+.like-button.liked {
+  color: var(--green);
+}
+
+.comment-button {
+  color: var(--purple);
+}
+
+/* =========================
+   COMMENTS
+========================= */
+
+.comment-box {
+  display: none;
+
+  margin-top: 14px;
+}
+
+.comment-box.open {
+  display: block;
+}
+
+.comments {
+  display: grid;
+
+  gap: 8px;
+
+  margin-bottom: 10px;
 }
 
 .comment {
-  margin-top: 10px;
+  padding: 10px 12px;
+
+  background: #101013;
+
+  border-left: 2px solid var(--purple);
+
+  border-radius: 9px;
+
+  word-break: break-word;
+}
+
+.comment strong {
+  color: var(--green);
+}
+
+.comment-date {
+  color: #777;
+
+  font-size: 11px;
+
+  margin-left: 6px;
+}
+
+.comment-text {
+  margin-top: 4px;
+
+  color: #ddd;
+
+  line-height: 1.45;
+}
+
+.comment-row {
+  display: flex;
+
+  gap: 8px;
+}
+
+.comment-input {
+  flex: 1;
+
+  min-height: 48px;
+
+  resize: vertical;
+
   padding: 12px;
-  border-radius: 12px;
-  background: #1b1b1b;
-  border: 1px solid #333;
+
   color: white;
-  </style>
+
+  background: #0d0d0f;
+
+  border: 1px solid #38383d;
+
+  border-radius: 12px;
+
+  outline: none;
+}
+
+.comment-input:focus {
+  border-color: var(--purple);
+}
+
+.publish {
+  padding: 0 16px;
+
+  color: var(--green);
+
+  background: #0b1309;
+
+  border: 1px solid var(--green);
+
+  border-radius: 12px;
+
+  font-weight: 800;
+}
+
+/* =========================
+   MODAL
+========================= */
+
+.modal {
+  position: fixed;
+
+  inset: 0;
+
+  z-index: 50;
+
+  display: none;
+
+  align-items: flex-end;
+
+  justify-content: center;
+
+  background: rgba(0,0,0,.78);
+}
+
+.modal.open {
+  display: flex;
+}
+
+.sheet {
+  width: min(100%, 620px);
+
+  padding: 21px;
+
+  background: #0d0d0f;
+
+  border: 1px solid #36363a;
+
+  border-radius: 22px 22px 0 0;
+}
+
+.sheet h3 {
+  margin-top: 0;
+
+  color: var(--gold);
+}
+
+.sheet input,
+.sheet textarea,
+.sheet select {
+  width: 100%;
+
+  margin: 6px 0 12px;
+
+  padding: 12px;
+
+  color: white;
+
+  background: #08080a;
+
+  border: 1px solid #333;
+
+  border-radius: 12px;
+
+  outline: none;
+}
+
+.sheet textarea {
+  min-height: 120px;
+
+  resize: vertical;
+}
+
+.sheet-actions {
+  display: flex;
+
+  justify-content: flex-end;
+
+  gap: 8px;
+}
+
+.cancel {
+  padding: 11px 16px;
+
+  color: #aaa;
+
+  background: #151517;
+
+  border: 1px solid #333;
+
+  border-radius: 12px;
+}
+
+.save {
+  padding: 11px 16px;
+
+  color: var(--green);
+
+  background: #0b160a;
+
+  border: 1px solid var(--green);
+
+  border-radius: 12px;
+
+  font-weight: 800;
+}
+
+/* =========================
+   BOTTOM MENU
+========================= */
+
+.bottom {
+  position: fixed;
+
+  left: 50%;
+  bottom: 10px;
+
+  transform: translateX(-50%);
+
+  z-index: 30;
+
+  width: min(
+    calc(100% - 24px),
+    720px
+  );
+
+  display: flex;
+
+  justify-content: space-around;
+
+  padding: 8px;
+
+  background: rgba(10,10,12,.95);
+
+  backdrop-filter: blur(15px);
+
+  border: 1px solid #34343a;
+
+  border-radius: 22px;
+}
+
+.bottom button {
+  padding: 6px 10px;
+
+  color: var(--muted);
+
+  background: transparent;
+
+  border: 0;
+
+  font-size: 11px;
+}
+
+.bottom .plus {
+  color: var(--green);
+
+  font-size: 24px;
+}
+
+.empty {
+  padding: 40px 20px;
+
+  color: var(--muted);
+
+  text-align: center;
+}
+
+.toast {
+  position: fixed;
+
+  top: 18px;
+  left: 50%;
+
+  transform: translateX(-50%);
+
+  z-index: 100;
+
+  display: none;
+
+  padding: 12px 16px;
+
+  color: white;
+
+  background: #111;
+
+  border: 1px solid var(--green);
+
+  border-radius: 12px;
+}
+
+.toast.show {
+  display: block;
+}
+
+@media(max-width:650px) {
+
+  .topbar {
+    align-items: flex-start;
+
+    flex-direction: column;
+  }
+
+  .nav {
+    width: 100%;
+  }
+
+  .hero {
+    padding: 20px;
+  }
+
+  .hero h1 {
+    font-size: 24px;
+  }
+
+  .card {
+    padding: 15px;
+  }
+
+  .comment-row {
+    flex-direction: column;
+  }
+
+  .publish {
+    min-height: 45px;
+  }
+}
+
+</style>
 </head>
 
 <body>
 
-<header>
-  <div class="container">
-    <div class="nav">
+<div id="toast" class="toast"></div>
 
-      <div>
-        <div class="logo">
-          AFTER <span>•</span>
-        </div>
-        <div class="by">BY OMITO</div>
-      </div>
+<div class="app">
 
-      <nav class="menu">
-        <a href="#trending">Trending</a>
-        <a href="#gossip">Chisme</a>
-        <a href="#nightlife">Nightlife</a>
-        <a href="#about">About</a>
-      </nav>
+<header class="topbar">
 
-    </div>
+  <div class="brand">
+    AFTER
+    <small>— BY OMITO —</small>
   </div>
+
+  <nav class="nav">
+
+    <button
+      class="active"
+      data-filter="all"
+    >
+      TODOS
+    </button>
+
+    <button data-filter="influencer">
+      INFLUENCERS
+    </button>
+
+    <button data-filter="bartender">
+      BARTENDERS
+    </button>
+
+  </nav>
+
 </header>
 
-
-<main>
-
 <section class="hero">
-  <div class="container">
 
-    <div class="tag">
-      LO QUE PASA DESPUÉS
-    </div>
+  <h1>
+    <span class="green">AFTER</span>
+    —
+    <span class="gold">BY OMITO</span>
+  </h1>
 
-    <h1>
-      AFTER<span class="purple">.</span>
-    </h1>
+  <p>
+    Influencers, bartenders, nightlife,
+    tendencias y todo lo que pasa después.
+  </p>
 
-    <p>
-      El lugar donde se habla de influencers, bartenders,
-      nightlife, tendencias y todo lo que pasa cuando
-      las luces se apagan.
-    </p>
+  <div class="hero-line"></div>
 
-  </div>
 </section>
 
+<div class="toolbar">
 
-<section class="section" id="trending">
-  <div class="container">
+  <input
+    id="search"
+    class="search"
+    placeholder="🔎 Buscar..."
+  >
 
-    <div class="section-title">
-      <h2>🔥 Trending</h2>
-      <span>Lo que está sonando</span>
-    </div>
-
-    <div class="featured">
-
-      <div class="featured-content">
-
-        <div class="category">
-          AFTER EXCLUSIVE
-        </div>
-
-        <h3>
-          Lo que pasó anoche
-          nadie te lo contó así.
-        </h3>
-
-        <p>
-          Historias, rumores, momentos inesperados
-          y las conversaciones que empiezan cuando
-          termina la noche.
-        </p>
-
-      </div>
-
-    </div>
-
-  </div>
-</section>
-
-
-<section class="section" id="gossip">
-  <div class="container">
-
-    <div class="section-title">
-      <h2>👀 Chisme</h2>
-      <span>Sin filtros</span>
-    </div>
-
-    <div class="cards">
-
-      <article class="card" data-post-id="1">
-        <div class="emoji">🔥</div>
-        <h3>Influencers</h3>
-        <p>
-          Quién apareció, quién desapareció
-          y qué está pasando detrás de las cámaras.
-        </p>
-<div class="post-actions">
-
-<button class="like-btn" onclick="toggleLike(this)">
-  ❤️ <span>Like</span>
-</button>
-
-<button onclick="toggleComment(this)">
-  💬 Comentario
-</button>
-
-<div class="comment-box">
-  <textarea placeholder="Escribe tu comentario..."></textarea>
-  <button onclick="addComment(this)">Publicar</button>
-</div>
-
-<div class="comments"></div>
-
-  <button onclick="alert('➕ Aquí podrás crear un nuevo post')">
-
-    ➕ Post
-
-  </button>
-
-</div>
-<div class="post-actions">
-
-  <button class="like-btn" onclick="toggleLike(this)">
-    ❤️ <span>Like</span>
-  </button>
-
-  <button onclick="toggleComment(this)">
-    💬 Comentario
+  <button
+    id="newPost"
+    class="new-post"
+  >
+    ＋ Publicar
   </button>
 
 </div>
 
-<div class="comment-box">
+<main id="feed">
 
-  <textarea placeholder="Escribe tu comentario..."></textarea>
-
-  <button onclick="addComment(this)">Publicar</button>
-
-  <div class="comments"></div>
-
-</div>
-      </article>
-
-      <article class="card" data-post-id="2">
-        <div class="emoji">🍸</div>
-        <h3>Bartenders</h3>
-        <p>
-          Los bartenders que están convirtiendo
-          la noche en una experiencia.
-</p>
-
-<div class="post-actions">
-
-  <button class="like-btn" onclick="toggleLike(this)">
-    ❤️ <span>Like</span>
-  </button>
-
-  <button onclick="toggleComment(this)">
-    💬 Comentario
-  </button>
-
-</div>
-
-<div class="comment-box">
-
-  <textarea placeholder="Escribe tu comentario..."></textarea>
-
-  <button onclick="addComment(this)">Publicar</button>
-
-  <div class="comments"></div>
-
-</div>
-
-</article>
-
-      <article class="card" data-post-id="3">
-        <div class="emoji">👁️</div>
-        <h3>Rumores</h3>
-        <p>
-          Las historias que todo el mundo comenta
-          pero nadie quiere contar primero.
-        </p>
-      </article>
-
-    </div>
-
+  <div class="empty">
+    Cargando AFTER...
   </div>
-</section>
-
-
-<section class="section" id="nightlife">
-  <div class="container">
-
-    <div class="section-title">
-      <h2>🌙 Nightlife</h2>
-      <span>Después de medianoche</span>
-    </div>
-
-    <div class="stories">
-
-      <article class="story">
-        <div class="story-left">
-          <div class="avatar">NY</div>
-          <div>
-            <h3>La noche empieza después de las 12</h3>
-            <p>Nightlife · New York</p>
-          </div>
-        </div>
-        <div class="arrow">→</div>
-      </article>
-
-      <article class="story">
-        <div class="story-left">
-          <div class="avatar">MI</div>
-          <div>
-            <h3>Los spots que están llenando la ciudad</h3>
-            <p>Nightlife · Miami</p>
-          </div>
-        </div>
-        <div class="arrow">→</div>
-      </article>
-
-      <article class="story">
-        <div class="story-left">
-          <div class="avatar">LA</div>
-          <div>
-            <h3>Quién está detrás de la barra</h3>
-            <p>Bartenders · Los Angeles</p>
-          </div>
-        </div>
-        <div class="arrow">→</div>
-      </article>
-
-    </div>
-
-  </div>
-</section>
-
-
-<section class="section" id="about">
-  <div class="container">
-
-    <div class="newsletter">
-
-      <h2>Esto es AFTER.</h2>
-
-      <p>
-        Historias reales. Noche real.
-        Personas reales. Todo lo que pasa después.
-      </p>
-
-      <a class="button" href="mailto:hello@afterbyomito.com">
-        CONTACTAR
-      </a>
-
-    </div>
-
-  </div>
-</section>
 
 </main>
 
+</div>
 
-<footer>
-  <div class="container">
+<nav class="bottom">
 
-    <strong>AFTER — by omito</strong>
+  <button id="homeButton">
+    ⌂
+    <br>
+    INICIO
+  </button>
 
-    <br><br>
+  <button id="searchButton">
+    ⌕
+    <br>
+    BUSCAR
+  </button>
 
-    © 2026 AFTER. Todos los derechos reservados.
+  <button
+    id="plusButton"
+    class="plus"
+  >
+    ＋
+  </button>
 
-  </div>
-</footer>
+  <button id="notificationsButton">
+    ♧
+    <br>
+    NOTIFICACIONES
+  </button>
+
+  <button id="profileButton">
+    ◎
+    <br>
+    PERFIL
+  </button>
+
+</nav>
+
+<div
+  id="postModal"
+  class="modal"
+>
+
+<form
+  id="postForm"
+  class="sheet"
+>
+
+<h3>
+  NUEVA PUBLICACIÓN
+</h3>
+
+<label>
+  Categoría
+</label>
+
+<select id="postCategory">
+
+  <option value="influencer">
+    Influencer
+  </option>
+
+  <option value="bartender">
+    Bartender
+  </option>
+
+</select>
+
+<label>
+  Título
+</label>
+
+<input
+  id="postTitle"
+  maxlength="120"
+  placeholder="Ej. Lo que pasó anoche..."
+>
+
+<label>
+  Publicación
+</label>
+
+<textarea
+  id="postBody"
+  maxlength="3000"
+  placeholder="Escribe tu publicación..."
+></textarea>
+
+<div class="sheet-actions">
+
+<button
+  type="button"
+  id="closeModal"
+  class="cancel"
+>
+  Cancelar
+</button>
+
+<button
+  type="submit"
+  class="save"
+>
+  PUBLICAR
+</button>
+
+</div>
+
+</form>
+
+</div>
 <script>
-function toggleLike(button) {
-  const text = button.querySelector("span");
+(() => {
 
-  button.classList.toggle("liked");
+  const $ = (selector, root = document) =>
+    root.querySelector(selector);
 
-  if (button.classList.contains("liked")) {
-    text.textContent = "Liked ❤️";
-  } else {
-    text.textContent = "Like";
-  }
-}
-</script>
-<script>
-function toggleComment(button) {
-  const card = button.closest(".card");
-  const box = card.querySelector(".comment-box");
+  const $$ = (selector, root = document) =>
+    [...root.querySelectorAll(selector)];
 
-  if (box.style.display === "block") {
-    box.style.display = "none";
-  } else {
-    box.style.display = "block";
-  }
-}
+  /* =========================
+     IDENTIDAD DEL VISITANTE
+  ========================= */
 
-async function addComment(button) {
-  const card = button.closest(".card");
-  const textarea = card.querySelector("textarea");
-  const comments = card.querySelector(".comments");
+  let visitorId =
+    localStorage.getItem("after_visitor_id");
 
-  const text = textarea.value.trim();
+  if (!visitorId) {
 
-  if (!text) {
-    alert("Escribe un comentario primero.");
-    return;
+    visitorId =
+      (crypto.randomUUID
+        ? crypto.randomUUID()
+        : "visitor-" +
+          Date.now() +
+          "-" +
+          Math.random()
+      );
+
+    localStorage.setItem(
+      "after_visitor_id",
+      visitorId
+    );
   }
 
-  // Obtener el ID del post
-  const postId = card.dataset.postId;
 
-  if (!postId) {
-    alert("No se encontró el post.");
-    return;
+  /* =========================
+     ESTADO
+  ========================= */
+
+  let posts = [];
+
+  let currentFilter = "all";
+
+  let currentSearch = "";
+
+
+  /* =========================
+     MENSAJES
+  ========================= */
+
+  function toast(message) {
+
+    const element =
+      $("#toast");
+
+    element.textContent =
+      message;
+
+    element.classList.add(
+      "show"
+    );
+
+    setTimeout(() => {
+
+      element.classList.remove(
+        "show"
+      );
+
+    }, 2500);
   }
 
-  try {
- const response = await fetch("/api/comment", {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json"
-  },
-  body: JSON.stringify({
-    post_id: postId,
-    comment: text
-  })
-});
 
-const data = await response.json();
-}
+  /* =========================
+     ESCAPAR HTML
+  ========================= */
 
-if (!response.ok || !data.success) {
-  alert(
-    data.error ||
-    "Error del servidor. Código: " + response.status
-  );
-  return;
-}
+  function escapeHTML(value) {
 
-    if (!data.success) {
-      alert(data.error || "No se pudo publicar el comentario.");
-      return;
+    return String(value ?? "")
+      .replace(
+        /[&<>"']/g,
+        character => ({
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          '"': "&quot;",
+          "'": "&#039;"
+        }[character])
+      );
+  }
+
+
+  /* =========================
+     API
+  ========================= */
+
+  async function api(
+    path,
+    options = {}
+  ) {
+
+    const response =
+      await fetch(
+        path,
+        {
+          ...options,
+
+          headers: {
+            "Content-Type":
+              "application/json",
+
+            ...(options.headers || {})
+          }
+        }
+      );
+
+    const raw =
+      await response.text();
+
+    let data = {};
+
+    try {
+
+      data =
+        raw
+          ? JSON.parse(raw)
+          : {};
+
+    } catch {
+
+      throw new Error(
+        "El servidor devolvió una respuesta inválida."
+      );
+
     }
 
-    // Mostrar el comentario en pantalla
-    const comment = document.createElement("div");
-    comment.className = "comment";
-    comment.textContent = "💬 " + text;
+    if (
+      !response.ok ||
+      data.success === false
+    ) {
 
-    comments.appendChild(comment);
+      throw new Error(
+        data.error ||
+        "Error del servidor."
+      );
 
-    textarea.value = "";
+    }
 
-  } catch (error) {
-    console.error(error);
-    alert("Error al conectar con el servidor.");
+    return data;
   }
-}
+
+
+  /* =========================
+     CARGAR POSTS
+  ========================= */
+
+  async function loadPosts() {
+
+    try {
+
+      const data =
+        await api(
+          "/api/posts?visitor_id=" +
+          encodeURIComponent(
+            visitorId
+          )
+        );
+
+      posts =
+        data.posts || [];
+
+      render();
+
+    } catch (error) {
+
+      console.error(error);
+
+      $("#feed").innerHTML = `
+
+        <div class="empty">
+
+          No se pudo cargar AFTER.
+
+          <br><br>
+
+          <small>
+            ${escapeHTML(
+              error.message
+            )}
+          </small>
+
+        </div>
+
+      `;
+
+    }
+
+  }
+
+
+  /* =========================
+     FECHA
+  ========================= */
+
+  function formatDate(date) {
+
+    const value =
+      new Date(date);
+
+    if (
+      Number.isNaN(
+        value.getTime()
+      )
+    ) {
+
+      return "";
+
+    }
+
+    return value.toLocaleString(
+      "es-US",
+      {
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit"
+      }
+    );
+
+  }
+
+
+  /* =========================
+     COMENTARIOS
+  ========================= */
+
+  function renderComments(
+    comments
+  ) {
+
+    if (
+      !comments ||
+      !comments.length
+    ) {
+
+      return `
+        <div
+          style="
+            color:#777;
+            padding:8px 0;
+          "
+        >
+          Todavía no hay comentarios.
+        </div>
+      `;
+
+    }
+
+    return comments
+      .map(comment => `
+
+        <div class="comment">
+
+          <strong>
+            ${escapeHTML(
+              comment.name
+            )}
+          </strong>
+
+          <span class="comment-date">
+
+            ${formatDate(
+              comment.created_at
+            )}
+
+          </span>
+
+          <div class="comment-text">
+
+            ${escapeHTML(
+              comment.comment
+            )}
+
+          </div>
+
+        </div>
+
+      `)
+      .join("");
+
+  }
+
+
+  /* =========================
+     MOSTRAR POSTS
+  ========================= */
+
+  function render() {
+
+    const visiblePosts =
+      posts.filter(post => {
+
+        const matchesFilter =
+          currentFilter === "all" ||
+          post.category ===
+            currentFilter;
+
+        const text =
+          (
+            post.title +
+            " " +
+            post.body
+          ).toLowerCase();
+
+        const matchesSearch =
+          text.includes(
+            currentSearch.toLowerCase()
+          );
+
+        return (
+          matchesFilter &&
+          matchesSearch
+        );
+
+      });
+
+
+    if (
+      !visiblePosts.length
+    ) {
+
+      $("#feed").innerHTML = `
+
+        <div class="empty">
+
+          No hay publicaciones
+          que coincidan.
+
+        </div>
+
+      `;
+
+      return;
+
+    }
+
+
+    $("#feed").innerHTML =
+      visiblePosts
+        .map(post => {
+
+          const isBartender =
+            post.category ===
+            "bartender";
+
+          return `
+
+          <article
+            class="card ${
+              isBartender
+                ? "bartender"
+                : ""
+            }"
+            data-id="${post.id}"
+          >
+
+            <div class="post-head">
+
+              <div class="avatar">
+
+                ${
+                  isBartender
+                    ? "🍸"
+                    : "✨"
+                }
+
+              </div>
+
+              <div>
+
+                <div class="name">
+
+                  ${escapeHTML(
+                    post.title
+                  )}
+
+                  <span class="verified">
+                    ●
+                  </span>
+
+                </div>
+
+                <div class="role">
+
+                  ${
+                    isBartender
+                      ? "Bartender"
+                      : "Influencer"
+                  }
+
+                  · AFTER
+
+                </div>
+
+              </div>
+
+            </div>
+
+
+            <h2>
+
+              ${escapeHTML(
+                post.title
+              )}
+
+            </h2>
+
+
+            <p>
+
+              ${escapeHTML(
+                post.body
+              )}
+
+            </p>
+
+
+            <div class="stats">
+
+              <button
+                class="
+                  like-button
+                  ${
+                    post.liked
+                      ? "liked"
+                      : ""
+                  }
+                "
+                data-like
+              >
+
+                💚 Like
+
+                <span>
+
+                  ${Number(
+                    post.likes || 0
+                  )}
+
+                </span>
+
+              </button>
+
+
+              <button
+                class="comment-button"
+                data-comments-toggle
+              >
+
+                💬 Comentario
+
+                <span>
+
+                  ${Number(
+                    post.comments || 0
+                  )}
+
+                </span>
+
+              </button>
+
+            </div>
+
+
+            <div
+              class="comment-box"
+              data-comment-box
+            >
+
+              <div
+                class="comments"
+                data-comments
+              >
+
+                ${renderComments(
+                  post.commentsList || []
+                )}
+
+              </div>
+
+
+              <div class="comment-row">
+
+                <textarea
+                  class="comment-input"
+                  data-comment-input
+                  maxlength="1000"
+                  rows="2"
+                  placeholder="Escribe un comentario..."
+                ></textarea>
+
+
+                <button
+                  class="publish"
+                  data-publish
+                >
+
+                  PUBLICAR
+
+                </button>
+
+              </div>
+
+            </div>
+
+          </article>
+
+          `;
+
+        })
+        .join("");
+
+
+    attachCardEvents();
+
+  }
+
+
+  /* =========================
+     EVENTOS DE LAS TARJETAS
+  ========================= */
+
+  function attachCardEvents() {
+
+    $$(".card")
+      .forEach(card => {
+
+        const postId =
+          Number(
+            card.dataset.id
+          );
+
+        const post =
+          posts.find(
+            item =>
+              Number(item.id) ===
+              postId
+          );
+
+        if (!post) return;
+
+
+        /* LIKE */
+
+        const likeButton =
+          $(
+            "[data-like]",
+            card
+          );
+
+        likeButton.onclick =
+          async () => {
+
+            likeButton.disabled =
+              true;
+
+            try {
+
+              const result =
+                await api(
+                  "/api/like",
+                  {
+                    method: "POST",
+
+                    body:
+                      JSON.stringify({
+                        post_id:
+                          postId,
+
+                        visitor_id:
+                          visitorId
+                      })
+                  }
+                );
+
+
+              post.liked =
+                result.liked;
+
+              post.likes =
+                result.likes;
+
+
+              render();
+
+
+              toast(
+                result.liked
+                  ? "Like agregado 💚"
+                  : "Like eliminado"
+              );
+
+
+            } catch (error) {
+
+              toast(
+                error.message
+              );
+
+            } finally {
+
+              likeButton.disabled =
+                false;
+
+            }
+
+          };
+
+
+        /* COMENTARIOS */
+
+        const toggle =
+          $(
+            "[data-comments-toggle]",
+            card
+          );
+
+        toggle.onclick =
+          () => {
+
+            const box =
+              $(
+                "[data-comment-box]",
+                card
+              );
+
+            box.classList.toggle(
+              "open"
+            );
+
+          };
+
+
+        /* PUBLICAR COMENTARIO */
+
+        const publish =
+          $(
+            "[data-publish]",
+            card
+          );
+
+
+        publish.onclick =
+          async () => {
+
+            const input =
+              $(
+                "[data-comment-input]",
+                card
+              );
+
+
+            const comment =
+              input.value.trim();
+
+
+            if (!comment) {
+
+              toast(
+                "Escribe un comentario."
+              );
+
+              input.focus();
+
+              return;
+
+            }
+
+
+            publish.disabled =
+              true;
+
+
+            try {
+
+              const name =
+                localStorage.getItem(
+                  "after_name"
+                ) ||
+                "Invitado";
+
+
+              const result =
+                await api(
+                  "/api/comment",
+                  {
+                    method: "POST",
+
+                    body:
+                      JSON.stringify({
+
+                        post_id:
+                          postId,
+
+                        visitor_id:
+                          visitorId,
+
+                        name,
+
+                        comment
+
+                      })
+                  }
+                );
+
+
+              post.commentsList =
+                result.comments ||
+                [];
+
+
+              post.comments =
+                post.commentsList.length;
+
+
+              input.value = "";
+
+
+              render();
+
+
+              const newCard =
+                document.querySelector(
+                  '.card[data-id="' +
+                  postId +
+                  '"]'
+                );
+
+
+              if (newCard) {
+
+                $(
+                  "[data-comment-box]",
+                  newCard
+                )
+                .classList.add(
+                  "open"
+                );
+
+              }
+
+
+              toast(
+                "Comentario publicado ✓"
+              );
+
+
+            } catch (error) {
+
+              toast(
+                error.message
+              );
+
+
+            } finally {
+
+              publish.disabled =
+                false;
+
+            }
+
+          };
+
+
+      });
+
+  }
+
+
+  /* =========================
+     FILTROS
+  ========================= */
+
+  $$(".nav button")
+    .forEach(button => {
+
+      button.onclick =
+        () => {
+
+          $$(".nav button")
+            .forEach(
+              item =>
+                item.classList.remove(
+                  "active"
+                )
+            );
+
+
+          button.classList.add(
+            "active"
+          );
+
+
+          currentFilter =
+            button.dataset.filter;
+
+
+          render();
+
+        };
+
+    });
+
+
+  /* =========================
+     BUSCAR
+  ========================= */
+
+  $("#search")
+    .addEventListener(
+      "input",
+      event => {
+
+        currentSearch =
+          event.target.value;
+
+        render();
+
+      }
+    );
+
+
+  /* =========================
+     MODAL
+  ========================= */
+
+  const modal =
+    $("#postModal");
+
+
+  function openModal() {
+
+    modal.classList.add(
+      "open"
+    );
+
+    $("#postTitle")
+      .focus();
+
+  }
+
+
+  function closeModal() {
+
+    modal.classList.remove(
+      "open"
+    );
+
+  }
+
+
+  $("#newPost")
+    .onclick =
+      openModal;
+
+
+  $("#plusButton")
+    .onclick =
+      openModal;
+
+
+  $("#closeModal")
+    .onclick =
+      closeModal;
+
+
+  modal.onclick =
+    event => {
+
+      if (
+        event.target ===
+        modal
+      ) {
+
+        closeModal();
+
+      }
+
+    };
+
+
+  /* =========================
+     NUEVA PUBLICACIÓN
+  ========================= */
+
+  $("#postForm")
+    .onsubmit =
+      async event => {
+
+        event.preventDefault();
+
+
+        const category =
+          $("#postCategory")
+            .value;
+
+
+        const title =
+          $("#postTitle")
+            .value
+            .trim();
+
+
+        const body =
+          $("#postBody")
+            .value
+            .trim();
+
+
+        if (
+          !title ||
+          !body
+        ) {
+
+          toast(
+            "Completa todos los campos."
+          );
+
+          return;
+
+        }
+
+
+        const button =
+          $(
+            '#postForm button[type="submit"]'
+          );
+
+
+        button.disabled =
+          true;
+
+
+        try {
+
+          await api(
+            "/api/post",
+            {
+              method: "POST",
+
+              body:
+                JSON.stringify({
+
+                  category,
+
+                  title,
+
+                  body
+
+                })
+
+            }
+          );
+
+
+          closeModal();
+
+
+          $("#postForm")
+            .reset();
+
+
+          await loadPosts();
+
+
+          toast(
+            "Publicación creada ✓"
+          );
+
+
+        } catch (error) {
+
+          toast(
+            error.message
+          );
+
+        } finally {
+
+          button.disabled =
+            false;
+
+        }
+
+      };
+
+
+  /* =========================
+     PERFIL
+  ========================= */
+
+  $("#profileButton")
+    .onclick =
+      () => {
+
+        const current =
+          localStorage.getItem(
+            "after_name"
+          ) ||
+          "Invitado";
+
+
+        const name =
+          prompt(
+            "¿Qué nombre quieres usar en tus comentarios?",
+            current
+          );
+
+
+        if (
+          name &&
+          name.trim()
+        ) {
+
+          localStorage.setItem(
+            "after_name",
+            name.trim()
+              .slice(0,40)
+          );
+
+
+          toast(
+            "Nombre guardado ✓"
+          );
+
+        }
+
+      };
+
+
+  /* =========================
+     INICIO
+  ========================= */
+
+  $("#homeButton")
+    .onclick =
+      () => {
+
+        window.scrollTo({
+          top: 0,
+          behavior: "smooth"
+        });
+
+      };
+
+
+  /* =========================
+     BUSCAR
+  ========================= */
+
+  $("#searchButton")
+    .onclick =
+      () => {
+
+        $("#search")
+          .focus();
+
+        window.scrollTo({
+          top: 100,
+          behavior: "smooth"
+        });
+
+      };
+
+
+  /* =========================
+     NOTIFICACIONES
+  ========================= */
+
+  $("#notificationsButton")
+    .onclick =
+      () => {
+
+        toast(
+          "No tienes notificaciones nuevas."
+        );
+
+      };
+
+
+  /* =========================
+     INICIAR
+  ========================= */
+
+  loadPosts();
+
+
+})();
 </script>
+
 </body>
 </html>`;
+}
 
-    return new Response(html, {
-      headers: {
-        "content-type": "text/html; charset=UTF-8",
-      },
-    });
-  },
+
+/* =========================
+   WORKER
+========================= */
+
+export default {
+
+  async fetch(
+    request: Request,
+    env: Env
+  ): Promise<Response> {
+
+    const url =
+      new URL(
+        request.url
+      );
+
+
+    try {
+
+      /* API */
+
+      if (
+        url.pathname.startsWith(
+          "/api/"
+        )
+      ) {
+
+        return await handleAPI(
+          request,
+          env,
+          url
+        );
+
+      }
+
+
+      /* PÁGINA */
+
+      if (
+        url.pathname !== "/"
+      ) {
+
+        return new Response(
+          "Página no encontrada.",
+          {
+            status: 404,
+
+            headers: {
+              "content-type":
+                "text/plain; charset=UTF-8"
+            }
+
+          }
+        );
+
+      }
+
+
+      return new Response(
+        pageHTML(),
+        {
+          status: 200,
+
+          headers: {
+            "content-type":
+              "text/html; charset=UTF-8",
+
+            "cache-control":
+              "no-store"
+          }
+
+        }
+      );
+
+
+    } catch (error) {
+
+      console.error(
+        error
+      );
+
+
+      if (
+        url.pathname.startsWith(
+          "/api/"
+        )
+      ) {
+
+        return json(
+          {
+            success: false,
+
+            error:
+              "Error del servidor. Revisa la conexión con D1."
+          },
+          500
+        );
+
+      }
+
+
+      return new Response(
+        "Error del servidor.",
+        {
+          status: 500
+        }
+      );
+
+    }
+
+  }
+
 };
