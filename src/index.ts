@@ -372,6 +372,39 @@ async fetch(request: Request, env: { DB: D1Database }): Promise<Response> {
   border-color: #8b5cf6 !important;
   transform: scale(1.03);
 }
+.comment-box {
+  display: none;
+  margin-top: 12px;
+}
+
+.comment-box textarea {
+  width: 100%;
+  min-height: 80px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid #444;
+  background: #111;
+  color: white;
+  font-size: 15px;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+.comment-box textarea::placeholder {
+  color: #888;
+}
+
+.comment-box button {
+  margin-top: 8px;
+}
+
+.comment {
+  margin-top: 10px;
+  padding: 12px;
+  border-radius: 12px;
+  background: #1b1b1b;
+  border: 1px solid #333;
+  color: white;
   </style>
 </head>
 
@@ -481,11 +514,16 @@ async fetch(request: Request, env: { DB: D1Database }): Promise<Response> {
   ❤️ <span>Like</span>
 </button>
 
-  <button onclick="alert('💬 Aquí podrás escribir un comentario')">
+<button onclick="toggleComment(this)">
+  💬 Comentario
+</button>
 
-    💬 Comentario
+<div class="comment-box">
+  <textarea placeholder="Escribe tu comentario..."></textarea>
+  <button onclick="addComment(this)">Publicar</button>
+</div>
 
-  </button>
+<div class="comments"></div>
 
   <button onclick="alert('➕ Aquí podrás crear un nuevo post')">
 
@@ -615,6 +653,39 @@ function toggleLike(button) {
   } else {
     text.textContent = "Like";
   }
+}
+</script>
+<script>
+function toggleComment(button) {
+  const card = button.closest(".card");
+  const box = card.querySelector(".comment-box");
+
+  if (box.style.display === "block") {
+    box.style.display = "none";
+  } else {
+    box.style.display = "block";
+  }
+}
+
+function addComment(button) {
+  const card = button.closest(".card");
+  const textarea = card.querySelector("textarea");
+  const comments = card.querySelector(".comments");
+
+  const text = textarea.value.trim();
+
+  if (!text) {
+    alert("Escribe un comentario primero.");
+    return;
+  }
+
+  const comment = document.createElement("div");
+  comment.className = "comment";
+  comment.textContent = "💬 " + text;
+
+  comments.appendChild(comment);
+
+  textarea.value = "";
 }
 </script>
 </body>
