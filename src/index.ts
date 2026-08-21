@@ -1,5 +1,5 @@
 export default {
-  async fetch(request: Request): Promise<Response> {
+async fetch(request: Request, env: { DB: D1Database }): Promise<Response> {
     const url = new URL(request.url);
 
     if (url.pathname !== "/") {
