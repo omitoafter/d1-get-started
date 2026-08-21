@@ -779,20 +779,7 @@ async function addComment(button) {
   })
 });
 
-const raw = await response.text();
-
-let data;
-
-try {
-  data = JSON.parse(raw);
-} catch (e) {
-  alert(
-    "Respuesta del servidor (" +
-    response.status +
-    "):\n\n" +
-    raw.substring(0, 500)
-  );
-  return;
+const data = await response.json();
 }
 
 if (!response.ok || !data.success) {
