@@ -3,14 +3,18 @@
  * https://developers.cloudflare.com/workers/wrangler/configuration/
  */
 {
-	"$schema": "node_modules/wrangler/config-schema.json",
-	"name": "d1-get-started",
-	"main": "src/index.ts",
-	"compatibility_date": "2025-04-30",
-	"observability": {
-		"enabled": true
-	},
-	"d1_databases": [
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "by-omito",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-04-30",
+  "observability": {
+    "enabled": true
+  },
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS"
+  },
+  "d1_databases": [
     {
       "binding": "DB",
       "database_name": "Afterchismeny",
