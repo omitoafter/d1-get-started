@@ -1,0 +1,1026 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: BY OMITO nightlife social platform API
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: social
+    description: Profiles, posts, discovery, and engagement
+  - name: chat
+    description: Direct messaging
+  - name: admin
+    description: Content moderation
+  - name: blog
+    description: Editorial nightlife stories
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+  /me:
+    get:
+      operationId: getCurrentUser
+      tags: [social]
+      summary: Get the signed-in profile
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CurrentUser"
+  /me/profile:
+    put:
+      operationId: updateProfile
+      tags: [social]
+      summary: Update the signed-in profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProfileUpdate"
+      responses:
+        "200":
+          description: Updated profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+  /feed:
+    get:
+      operationId: getFeed
+      tags: [social]
+      summary: Get the social feed
+      parameters:
+        - $ref: "#/components/parameters/Category"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: Feed posts
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PostFeed"
+  /trending:
+    get:
+      operationId: getTrending
+      tags: [social]
+      summary: Get trending nightlife content
+      responses:
+        "200":
+          description: Trending posts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Post"
+  /search:
+    get:
+      operationId: searchSocial
+      tags: [social]
+      summary: Search creators and posts
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema: { type: string, minLength: 1 }
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchResults"
+  /users/{username}:
+    get:
+      operationId: getProfile
+      tags: [social]
+      summary: Get a public profile
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Profile"
+  /users/{username}/follow:
+    post:
+      operationId: toggleFollow
+      tags: [social]
+      summary: Follow or unfollow a creator
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Updated following state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FollowState"
+  /blog:
+    get:
+      operationId: getBlog
+      tags: [blog]
+      summary: Get published editorial stories
+      responses:
+        "200":
+          description: Published stories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Article"
+  /blog/{slug}:
+    get:
+      operationId: getBlogArticle
+      tags: [blog]
+      summary: Get one editorial story
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Editorial story
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Article"
+  /posts:
+    post:
+      operationId: createPost
+      tags: [social]
+      summary: Create a post
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PostInput"
+      responses:
+        "201":
+          description: Created post
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Post"
+  /posts/{id}/like:
+    post:
+      operationId: togglePostLike
+      tags: [social]
+      summary: Like or unlike a post
+      parameters:
+        - $ref: "#/components/parameters/PostId"
+      responses:
+        "200":
+          description: Updated like state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LikeState"
+  /posts/{id}/comments:
+    get:
+      operationId: getPostComments
+      tags: [social]
+      summary: List post comments
+      parameters:
+        - $ref: "#/components/parameters/PostId"
+      responses:
+        "200":
+          description: Comments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Comment"
+    post:
+      operationId: createPostComment
+      tags: [social]
+      summary: Add a post comment
+      parameters:
+        - $ref: "#/components/parameters/PostId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CommentInput"
+      responses:
+        "201":
+          description: Created comment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Comment"
+  /chats:
+    get:
+      operationId: getChats
+      tags: [chat]
+      summary: List conversations
+      responses:
+        "200":
+          description: Conversations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Conversation"
+    post:
+      operationId: createChat
+      tags: [chat]
+      summary: Start a private conversation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConversationInput"
+      responses:
+        "201":
+          description: Conversation created or found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Conversation"
+  /chats/{id}/messages:
+    get:
+      operationId: getChatMessages
+      tags: [chat]
+      summary: List chat messages
+      parameters:
+        - $ref: "#/components/parameters/ChatId"
+      responses:
+        "200":
+          description: Messages
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Message"
+    post:
+      operationId: sendChatMessage
+      tags: [chat]
+      summary: Send a chat message
+      parameters:
+        - $ref: "#/components/parameters/ChatId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MessageInput"
+      responses:
+        "201":
+          description: Sent message
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Message"
+  /admin/dashboard:
+    get:
+      operationId: getAdminDashboard
+      tags: [admin]
+      summary: Get administration summary
+      responses:
+        "200":
+          description: Administration dashboard
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminDashboard"
+  /admin/users:
+    get:
+      operationId: getAdminUsers
+      tags: [admin]
+      summary: List members for administration
+      parameters:
+        - $ref: "#/components/parameters/AdminSearch"
+      responses:
+        "200":
+          description: Members
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminUser"
+  /admin/users/{id}:
+    patch:
+      operationId: updateAdminUser
+      tags: [admin]
+      summary: Update member role or status
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminUserUpdate"
+      responses:
+        "200":
+          description: Updated member
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUser"
+  /admin/posts:
+    get:
+      operationId: getAdminPosts
+      tags: [admin]
+      summary: List posts for moderation
+      parameters:
+        - $ref: "#/components/parameters/AdminSearch"
+        - $ref: "#/components/parameters/ModerationStatus"
+      responses:
+        "200":
+          description: Posts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminPost"
+  /admin/posts/{id}:
+    patch:
+      operationId: moderateAdminPost
+      tags: [admin]
+      summary: Hide or restore a post
+      parameters:
+        - $ref: "#/components/parameters/PostId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ModerationUpdate"
+      responses:
+        "200":
+          description: Updated post
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminPost"
+  /admin/comments:
+    get:
+      operationId: getAdminComments
+      tags: [admin]
+      summary: List comments for moderation
+      parameters:
+        - $ref: "#/components/parameters/AdminSearch"
+        - $ref: "#/components/parameters/ModerationStatus"
+      responses:
+        "200":
+          description: Comments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminComment"
+  /admin/comments/{id}:
+    patch:
+      operationId: moderateAdminComment
+      tags: [admin]
+      summary: Hide or restore a comment
+      parameters:
+        - $ref: "#/components/parameters/CommentId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ModerationUpdate"
+      responses:
+        "200":
+          description: Updated comment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminComment"
+  /admin/banners:
+    get:
+      operationId: getAdminBanners
+      tags: [admin]
+      summary: List campaign banners
+      responses:
+        "200":
+          description: Banners
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminBanner"
+    post:
+      operationId: createAdminBanner
+      tags: [admin]
+      summary: Create campaign banner
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BannerInput"
+      responses:
+        "201":
+          description: Created banner
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminBanner"
+  /admin/banners/{id}:
+    patch:
+      operationId: updateAdminBanner
+      tags: [admin]
+      summary: Update campaign banner
+      parameters:
+        - $ref: "#/components/parameters/BannerId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BannerUpdate"
+      responses:
+        "200":
+          description: Updated banner
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminBanner"
+  /admin/articles:
+    get:
+      operationId: getAdminArticles
+      tags: [admin]
+      summary: List Journal articles
+      responses:
+        "200":
+          description: Articles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminArticle"
+    post:
+      operationId: createAdminArticle
+      tags: [admin]
+      summary: Create Journal article
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ArticleInput"
+      responses:
+        "201":
+          description: Created article
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminArticle"
+  /admin/articles/{id}:
+    patch:
+      operationId: updateAdminArticle
+      tags: [admin]
+      summary: Update Journal article
+      parameters:
+        - $ref: "#/components/parameters/ArticleId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ArticleUpdate"
+      responses:
+        "200":
+          description: Updated article
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminArticle"
+  /admin/reports:
+    get:
+      operationId: getAdminReports
+      tags: [admin]
+      summary: List moderation reports
+      responses:
+        "200":
+          description: Reports
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminReport"
+  /admin/reports/{id}:
+    patch:
+      operationId: resolveAdminReport
+      tags: [admin]
+      summary: Resolve moderation report
+      parameters:
+        - $ref: "#/components/parameters/ReportId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReportResolution"
+      responses:
+        "200":
+          description: Resolved report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminReport"
+  /admin/audit:
+    get:
+      operationId: getAdminAudit
+      tags: [admin]
+      summary: List administration activity
+      responses:
+        "200":
+          description: Audit events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AuditLog"
+  /banners:
+    get:
+      operationId: getActiveBanners
+      tags: [social]
+      summary: List active banners for a section
+      parameters:
+        - $ref: "#/components/parameters/BannerPlacement"
+      responses:
+        "200":
+          description: Active banners
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Banner"
+  /banners/{id}/events:
+    post:
+      operationId: trackBannerEvent
+      tags: [social]
+      summary: Record banner impression or click
+      parameters:
+        - $ref: "#/components/parameters/BannerId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BannerEventInput"
+      responses:
+        "201":
+          description: Recorded event
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BannerEvent"
+components:
+  parameters:
+    PostId:
+      name: id
+      in: path
+      required: true
+      schema: { type: number }
+    UserId:
+      name: id
+      in: path
+      required: true
+      schema: { type: number }
+    CommentId:
+      name: id
+      in: path
+      required: true
+      schema: { type: number }
+    BannerId:
+      name: id
+      in: path
+      required: true
+      schema: { type: number }
+    ArticleId:
+      name: id
+      in: path
+      required: true
+      schema: { type: number }
+    ReportId:
+      name: id
+      in: path
+      required: true
+      schema: { type: number }
+    ChatId:
+      name: id
+      in: path
+      required: true
+      schema: { type: number }
+    AdminSearch:
+      name: q
+      in: query
+      schema: { type: string }
+    ModerationStatus:
+      name: status
+      in: query
+      schema: { type: string, enum: [all, visible, hidden], default: all }
+    BannerPlacement:
+      name: placement
+      in: query
+      required: true
+      schema: { type: string, enum: [room, explore, journal] }
+    Category:
+      name: category
+      in: query
+      schema:
+        type: string
+        enum: [all, influencers, bartenders]
+        default: all
+    Cursor:
+      name: cursor
+      in: query
+      schema: { type: string }
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+    User:
+      type: object
+      required: [id, username, displayName, category, avatarUrl, bio, basicInfo, followers]
+      properties:
+        id: { type: number }
+        username: { type: string }
+        displayName: { type: string }
+        category: { type: string, enum: [influencer, bartender, everyone] }
+        avatarUrl: { type: string }
+        bio: { type: string }
+        basicInfo: { type: string }
+        followers: { type: number }
+        isFollowing: { type: boolean }
+    CurrentUser:
+      allOf:
+        - $ref: "#/components/schemas/User"
+        - type: object
+          required: [adminRole]
+          properties:
+            adminRole: { type: string, enum: [member, admin, owner] }
+    ProfileUpdate:
+      type: object
+      required: [username, displayName, category, avatarUrl, bio, basicInfo]
+      properties:
+        username: { type: string, minLength: 3, maxLength: 28 }
+        displayName: { type: string, minLength: 1, maxLength: 80 }
+        category: { type: string, enum: [influencer, bartender, everyone] }
+        avatarUrl: { type: string }
+        bio: { type: string, maxLength: 600 }
+        basicInfo: { type: string, maxLength: 240 }
+    Profile:
+      allOf:
+        - $ref: "#/components/schemas/User"
+        - type: object
+          required: [posts]
+          properties:
+            posts:
+              type: array
+              items: { $ref: "#/components/schemas/Post" }
+    Post:
+      type: object
+      required: [id, author, caption, imageUrl, category, likes, comments, createdAt, likedByMe]
+      properties:
+        id: { type: number }
+        author: { $ref: "#/components/schemas/User" }
+        caption: { type: string }
+        imageUrl: { type: string }
+        category: { type: string, enum: [influencer, bartender, everyone] }
+        location: { type: ["string", "null"] }
+        likes: { type: number }
+        comments: { type: number }
+        createdAt: { type: string, format: date-time }
+        likedByMe: { type: boolean }
+    PostFeed:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Post" }
+        nextCursor: { type: ["string", "null"] }
+    PostInput:
+      type: object
+      required: [caption, imageUrl]
+      properties:
+        caption: { type: string, minLength: 1, maxLength: 600 }
+        imageUrl: { type: string }
+        category: { type: string, enum: [influencer, bartender, everyone] }
+        location: { type: string, maxLength: 120 }
+    LikeState:
+      type: object
+      required: [liked, likes]
+      properties:
+        liked: { type: boolean }
+        likes: { type: number }
+    Comment:
+      type: object
+      required: [id, author, body, createdAt]
+      properties:
+        id: { type: number }
+        author: { $ref: "#/components/schemas/User" }
+        body: { type: string }
+        createdAt: { type: string, format: date-time }
+    CommentInput:
+      type: object
+      required: [body]
+      properties:
+        body: { type: string, minLength: 1, maxLength: 600 }
+    FollowState:
+      type: object
+      required: [following, followers]
+      properties:
+        following: { type: boolean }
+        followers: { type: number }
+    Article:
+      type: object
+      required: [id, slug, title, excerpt, body, coverImageUrl, publishedAt, author]
+      properties:
+        id: { type: number }
+        slug: { type: string }
+        title: { type: string }
+        excerpt: { type: string }
+        body: { type: string }
+        coverImageUrl: { type: string }
+        publishedAt: { type: string, format: date-time }
+        author: { $ref: "#/components/schemas/User" }
+    SearchResults:
+      type: object
+      required: [users, posts]
+      properties:
+        users:
+          type: array
+          items: { $ref: "#/components/schemas/User" }
+        posts:
+          type: array
+          items: { $ref: "#/components/schemas/Post" }
+    Conversation:
+      type: object
+      required: [id, participant, lastMessage, unread]
+      properties:
+        id: { type: number }
+        participant: { $ref: "#/components/schemas/User" }
+        lastMessage: { type: string }
+        unread: { type: number }
+    ConversationInput:
+      type: object
+      required: [username]
+      properties:
+        username: { type: string, minLength: 3, maxLength: 28 }
+    Message:
+      type: object
+      required: [id, sender, body, createdAt]
+      properties:
+        id: { type: number }
+        sender: { $ref: "#/components/schemas/User" }
+        body: { type: string }
+        createdAt: { type: string, format: date-time }
+    MessageInput:
+      type: object
+      required: [body]
+      properties:
+        body: { type: string, minLength: 1 }
+    AdminDashboard:
+      type: object
+      required: [users, posts, comments, followers, activeBanners, openReports, recentActivity]
+      properties:
+        users: { type: number }
+        posts: { type: number }
+        comments: { type: number }
+        followers: { type: number }
+        activeBanners: { type: number }
+        openReports: { type: number }
+        recentActivity:
+          type: array
+          items: { $ref: "#/components/schemas/AuditLog" }
+    AdminUser:
+      type: object
+      required: [id, username, displayName, avatarUrl, category, adminRole, accountStatus, followers, posts, createdAt]
+      properties:
+        id: { type: number }
+        username: { type: string }
+        displayName: { type: string }
+        avatarUrl: { type: string }
+        bio: { type: string }
+        basicInfo: { type: string }
+        category: { type: string, enum: [influencer, bartender, everyone] }
+        adminRole: { type: string, enum: [member, admin, owner] }
+        accountStatus: { type: string, enum: [active, suspended] }
+        suspensionReason: { type: ["string", "null"] }
+        followers: { type: number }
+        posts: { type: number }
+        createdAt: { type: string, format: date-time }
+    AdminUserUpdate:
+      type: object
+      properties:
+        displayName: { type: string, minLength: 1, maxLength: 80 }
+        bio: { type: string, maxLength: 600 }
+        basicInfo: { type: string, maxLength: 240 }
+        category: { type: string, enum: [influencer, bartender, everyone] }
+        adminRole: { type: string, enum: [member, admin] }
+        accountStatus: { type: string, enum: [active, suspended] }
+        suspensionReason: { type: string, maxLength: 240 }
+    AdminPost:
+      type: object
+      required: [id, author, caption, imageUrl, category, location, likes, comments, moderationStatus, moderationReason, createdAt]
+      properties:
+        id: { type: number }
+        author: { $ref: "#/components/schemas/User" }
+        caption: { type: string }
+        imageUrl: { type: string }
+        category: { type: string, enum: [influencer, bartender, everyone] }
+        location: { type: ["string", "null"] }
+        likes: { type: number }
+        comments: { type: number }
+        moderationStatus: { type: string, enum: [visible, hidden] }
+        moderationReason: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+    AdminComment:
+      type: object
+      required: [id, postId, author, body, moderationStatus, moderationReason, createdAt]
+      properties:
+        id: { type: number }
+        postId: { type: number }
+        author: { $ref: "#/components/schemas/User" }
+        body: { type: string }
+        moderationStatus: { type: string, enum: [visible, hidden] }
+        moderationReason: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+    ModerationUpdate:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string, enum: [visible, hidden] }
+        reason: { type: string, maxLength: 240 }
+    Banner:
+      type: object
+      required: [id, title, body, imageUrl, destinationUrl, placements, displayOrder]
+      properties:
+        id: { type: number }
+        title: { type: string }
+        body: { type: string }
+        imageUrl: { type: string }
+        destinationUrl: { type: string }
+        placements:
+          type: array
+          items: { type: string, enum: [room, explore, journal] }
+        displayOrder: { type: number }
+    AdminBanner:
+      allOf:
+        - $ref: "#/components/schemas/Banner"
+        - type: object
+          required: [isActive, startsAt, endsAt, impressions, clicks, createdAt]
+          properties:
+            isActive: { type: boolean }
+            startsAt: { type: ["string", "null"], format: date-time }
+            endsAt: { type: ["string", "null"], format: date-time }
+            impressions: { type: number }
+            clicks: { type: number }
+            createdAt: { type: string, format: date-time }
+    BannerInput:
+      type: object
+      required: [title, imageUrl, destinationUrl, placements]
+      properties:
+        title: { type: string, minLength: 1, maxLength: 100 }
+        body: { type: string, maxLength: 240 }
+        imageUrl: { type: string }
+        destinationUrl: { type: string }
+        placements:
+          type: array
+          minItems: 1
+          items: { type: string, enum: [room, explore, journal] }
+        displayOrder: { type: number }
+        isActive: { type: boolean }
+        startsAt: { type: ["string", "null"], format: date-time }
+        endsAt: { type: ["string", "null"], format: date-time }
+    BannerUpdate:
+      type: object
+      properties:
+        title: { type: string, minLength: 1, maxLength: 100 }
+        body: { type: string, maxLength: 240 }
+        imageUrl: { type: string }
+        destinationUrl: { type: string }
+        placements:
+          type: array
+          minItems: 1
+          items: { type: string, enum: [room, explore, journal] }
+        displayOrder: { type: number }
+        isActive: { type: boolean }
+        startsAt: { type: ["string", "null"], format: date-time }
+        endsAt: { type: ["string", "null"], format: date-time }
+    AdminArticle:
+      allOf:
+        - $ref: "#/components/schemas/Article"
+        - type: object
+          required: [status, updatedAt]
+          properties:
+            status: { type: string, enum: [draft, published, hidden] }
+            updatedAt: { type: string, format: date-time }
+    ArticleInput:
+      type: object
+      required: [slug, title, excerpt, body, coverImageUrl]
+      properties:
+        slug: { type: string, minLength: 3, maxLength: 120 }
+        title: { type: string, minLength: 1, maxLength: 160 }
+        excerpt: { type: string, minLength: 1, maxLength: 360 }
+        body: { type: string, minLength: 1, maxLength: 12000 }
+        coverImageUrl: { type: string }
+        status: { type: string, enum: [draft, published, hidden] }
+    ArticleUpdate:
+      type: object
+      properties:
+        slug: { type: string, minLength: 3, maxLength: 120 }
+        title: { type: string, minLength: 1, maxLength: 160 }
+        excerpt: { type: string, minLength: 1, maxLength: 360 }
+        body: { type: string, minLength: 1, maxLength: 12000 }
+        coverImageUrl: { type: string }
+        status: { type: string, enum: [draft, published, hidden] }
+    AdminReport:
+      type: object
+      required: [id, targetType, targetId, reason, status, resolution, reporter, createdAt, resolvedAt]
+      properties:
+        id: { type: number }
+        targetType: { type: string, enum: [user, post, comment] }
+        targetId: { type: number }
+        reason: { type: string }
+        status: { type: string, enum: [open, resolved] }
+        resolution: { type: ["string", "null"] }
+        reporter: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+        resolvedAt: { type: ["string", "null"], format: date-time }
+    ReportResolution:
+      type: object
+      required: [resolution]
+      properties:
+        resolution: { type: string, minLength: 1, maxLength: 500 }
+    AuditLog:
+      type: object
+      required: [id, actor, action, targetType, targetId, summary, createdAt]
+      properties:
+        id: { type: number }
+        actor: { type: ["string", "null"] }
+        action: { type: string }
+        targetType: { type: string }
+        targetId: { type: ["number", "null"] }
+        summary: { type: string }
+        createdAt: { type: string, format: date-time }
+    BannerEventInput:
+      type: object
+      required: [eventType, placement]
+      properties:
+        eventType: { type: string, enum: [impression, click] }
+        placement: { type: string, enum: [room, explore, journal] }
+    BannerEvent:
+      type: object
+      required: [id, bannerId, eventType, createdAt]
+      properties:
+        id: { type: number }
+        bannerId: { type: number }
+        eventType: { type: string, enum: [impression, click] }
+        createdAt: { type: string, format: date-time }
+

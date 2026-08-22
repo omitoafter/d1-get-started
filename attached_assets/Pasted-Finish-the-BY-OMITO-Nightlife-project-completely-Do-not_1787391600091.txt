@@ -1,0 +1,110 @@
+Finish the BY OMITO Nightlife project completely.
+
+Do not just explain what needs to be done. Inspect the entire existing project, understand what has already been built, and implement everything that is still missing.
+
+The goal is to deliver a production-ready BY OMITO Nightlife platform.
+
+Complete and verify all of these areas:
+
+1. Public website
+- Modern black, white and purple design.
+- Fully responsive for mobile and desktop.
+- BY OMITO branding.
+- Homepage with nightlife discovery, trending content, influencers and bartenders.
+- User registration and login.
+- User profiles.
+- Posts, comments, likes and sharing.
+- Blog/content publishing.
+- Live/chat functionality where the existing architecture supports it.
+- Search and discovery.
+
+2. Monetization
+- Paid promotions/campaigns.
+- Advertiser campaign creation.
+- Products/offers with pricing, duration, status and expiration.
+- Campaign placement and delivery.
+- Receipts/payment states must remain consistent.
+- Engagement metrics must use the correct units (counts vs percentages).
+- Sold/discoverable placement contexts must work correctly.
+- Prevent expired products from being active.
+- Allow inactive products to be re-enabled when appropriate.
+- Referral/affiliate system.
+- Track referred users and subscriptions/purchases.
+- Commission calculation and commission status.
+- Admin controls for monetization.
+
+3. Admin dashboard
+- Complete the existing monetization dashboard.
+- Campaign management.
+- Product management.
+- User management.
+- Influencer/bartender management.
+- Payments/transactions.
+- Commissions.
+- Analytics.
+- Reports.
+- Settings.
+- Proper loading, empty, success and error states.
+
+4. Database and backend
+- Inspect the existing database schema and migrations.
+- Make sure all required tables, relationships, indexes and constraints exist.
+- Make all API routes functional.
+- Validate all inputs.
+- Add proper authentication and authorization.
+- Protect admin-only functionality.
+- Prevent duplicate transactions, commissions and campaign deliveries.
+- Make payment/receipt state transitions reliable.
+
+5. UI/UX
+- Keep the existing BY OMITO visual identity.
+- Make every button and navigation item functional.
+- Remove placeholder functionality where possible.
+- Make forms validate correctly.
+- Make errors understandable.
+- Make the application usable on iPhone and desktop.
+
+6. Reliability and security
+- Check the entire codebase for bugs.
+- Fix broken routes and imports.
+- Fix database errors.
+- Fix authentication problems.
+- Fix API errors.
+- Protect sensitive data.
+- Never expose secrets, API keys or tokens.
+- Use environment variables for secrets.
+- Do not create fake payment confirmations or fake production data.
+
+7. Testing
+- Run the project's available tests.
+- Test the important user flows end-to-end.
+- Test registration/login.
+- Test creating and editing content.
+- Test campaigns.
+- Test monetization.
+- Test commissions/referrals.
+- Test admin functionality.
+- Test database operations.
+- Fix every error you encounter.
+- Run the tests again after fixing them.
+
+8. Final cleanup
+- Remove unnecessary placeholder code.
+- Resolve TODOs that are required for the core product.
+- Check for console errors.
+- Check for build errors.
+- Check for broken links/routes.
+- Check mobile responsiveness.
+- Make sure the application builds and runs successfully.
+
+IMPORTANT:
+Work directly on the existing project. Do not start a separate replacement project.
+Preserve everything that is already working.
+Do not stop after giving me a plan.
+Actually implement the changes, test them, and fix problems.
+Continue working until the core BY OMITO Nightlife platform is complete and functional.
+
+At the end, give me a concise summary of:
+- What you completed
+- What you tested
+- Any remaining blockers that genuinely require an external service or my credentials

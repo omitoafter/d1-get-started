@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "BY OMITO"
+description = "A production-ready nightlife social platform for influencers and bartenders with profiles, posts, discovery, live chat, authentication, and admin moderation."
+version = "1.0.0"
+id = "artifacts/by-omito"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 21397
+
+[services.development]
+run = "pnpm --filter @workspace/by-omito run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/by-omito", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/by-omito/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "21397"
+BASE_PATH = "/"

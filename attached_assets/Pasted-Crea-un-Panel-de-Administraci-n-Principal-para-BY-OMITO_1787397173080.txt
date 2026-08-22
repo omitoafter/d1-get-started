@@ -1,0 +1,119 @@
+Crea un Panel de Administración Principal para BY OMITO.
+
+IMPORTANTE: El propietario/admin principal debe tener control total de la plataforma. No rompas ninguna función existente y no elimines datos existentes.
+
+SEGURIDAD DEL ADMIN:
+
+* Usa la autenticación existente de Clerk.
+* Crea un rol seguro de administrador/owner.
+* Solo las cuentas autorizadas como admin pueden acceder al panel.
+* Protege las acciones administrativas también en el servidor/API, no solamente ocultando botones en la interfaz.
+* Los usuarios normales, influencers y bartenders NO deben poder acceder ni ejecutar acciones administrativas.
+* No expongas claves, secretos ni credenciales en el frontend.
+
+PANEL PRINCIPAL:
+
+1. Dashboard
+
+* Resumen de usuarios.
+* Publicaciones.
+* Comentarios.
+* Seguidores.
+* Actividad reciente.
+* Estadísticas básicas.
+
+2. USUARIOS
+
+* Ver usuarios.
+* Buscar usuarios.
+* Ver perfiles.
+* Editar información cuando sea necesario.
+* Suspender/desactivar usuarios.
+* Reactivar usuarios.
+* Eliminar usuarios cuando corresponda.
+* Administrar roles: Admin, Influencer, Bartender y Everyone.
+* Mantener protección para que un admin no pueda ser eliminado accidentalmente.
+
+3. PUBLICACIONES Y FOTOS
+
+* Ver todas las publicaciones.
+* Buscar y filtrar publicaciones.
+* Ocultar publicaciones.
+* Restaurar publicaciones.
+* Eliminar publicaciones.
+* Administrar fotos/imágenes asociadas.
+* No eliminar contenido sin una confirmación administrativa.
+
+4. COMENTARIOS
+
+* Ver comentarios.
+* Buscar comentarios.
+* Eliminar comentarios.
+* Ocultar/restaurar comentarios cuando corresponda.
+* Revisar contenido reportado.
+
+5. BANNERS PUBLICITARIOS
+    Crear una sección completa para administrar publicidad:
+
+* Crear banner.
+* Subir/usar imagen del banner.
+* Título.
+* Texto.
+* Enlace de destino.
+* Activar/desactivar.
+* Editar.
+* Eliminar.
+* Elegir dónde aparece: Room, Explore, Journal u otras áreas disponibles.
+* Orden/prioridad de los banners.
+* Fecha de inicio y finalización opcional.
+* Registrar impresiones y clics si la arquitectura actual lo permite.
+* Los banners desactivados no deben mostrarse a los usuarios.
+
+6. JOURNAL
+
+* Crear artículos.
+* Editar artículos.
+* Publicar/despublicar.
+* Eliminar artículos.
+* Administrar imágenes y contenido.
+
+7. REPORTES Y MODERACIÓN
+
+* Ver contenido reportado.
+* Revisar reportes.
+* Resolver reportes.
+* Tomar acciones sobre publicaciones, comentarios o usuarios.
+
+8. CONFIGURACIÓN
+
+* Mantener la identidad visual actual de BY OMITO.
+* Negro, blanco, morado y rosa.
+* Diseño moderno, nocturno y optimizado para teléfonos.
+* No modificar Room, Explore, Journal ni Chat de manera que se rompa su funcionamiento.
+
+9. REGISTRO DE ADMINISTRACIÓN
+    Registra las acciones importantes realizadas por administradores:
+
+* Quién hizo el cambio.
+* Qué cambió.
+* Fecha/hora.
+* Elemento afectado.
+
+10. BASE DE DATOS
+
+* Usa la base de datos de producción existente.
+* Haz las migraciones de forma segura.
+* No borres ni reemplaces datos existentes.
+* Si necesitas modificar el esquema, crea migraciones compatibles y seguras.
+
+ANTES DE TERMINAR:
+Prueba que:
+
+* Un usuario normal NO pueda entrar al panel.
+* El administrador pueda entrar.
+* El administrador pueda administrar usuarios.
+* El administrador pueda administrar publicaciones y fotos.
+* El administrador pueda administrar comentarios.
+* El administrador pueda crear, editar, activar, desactivar y eliminar banners.
+* El administrador pueda administrar Journal.
+* Room, Explore, Journal, Chat, perfiles, login y publicaciones existentes sigan funcionando.
