@@ -3,12 +3,12 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "deploy": "wrangler deploy",
+    "deploy": "npm run db:migrate && wrangler deploy",
+    "db:migrate": "wrangler d1 execute DB --file=schema.sql --remote",
     "dev": "wrangler dev",
     "start": "wrangler dev",
     "test": "vitest",
-    "cf-typegen": "wrangler types",
-    "postdeploy": "wrangler d1 execute DB --file=schema.sql --remote"
+    "cf-typegen": "wrangler types"
   },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.8.19",
